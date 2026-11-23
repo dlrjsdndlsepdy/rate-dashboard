@@ -39,11 +39,20 @@
   .chartbox { position:relative; height:300px; }
   .foot { color:var(--muted); font-size:12px; margin-top:20px; line-height:1.7; }
 </style>
+<!--pwa-->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f1419">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="NOIS">
 </head>
 <body>
 <div class="wrap">
   <h1>금리 · 스프레드 대시보드</h1>
-  <div class="sub">최신 데이터 <b id="asof"></b> · 페이지 생성 2026-11-23 19:13 KST · <a href="daily.html">🧭 오늘의 해석</a> · <a href="guide.html">📘 지표 가이드</a> · <a href="us.html">🇺🇸 미국</a></div>
+  <div class="sub">최신 데이터 <b id="asof"></b> · 페이지 생성 2026-11-23 19:46 KST · <a href="daily.html">🧭 오늘의 해석</a> · <a href="guide.html">📘 지표 가이드</a> · <a href="us.html">🇺🇸 미국</a></div>
 
   <div class="tabs" id="tabs"></div>
   <p class="desc" id="desc"></p>
@@ -168,6 +177,18 @@ document.querySelectorAll("#ranges button").forEach(b => b.onclick = () => {
 });
 cur = TABS.find(t => "#" + t.id === location.hash) || TABS[0];
 render();
+</script>
+<script>
+if ("serviceWorker" in navigator) { navigator.serviceWorker.register("sw.js").catch(() => {}); }
+let _pwaEvt = null;
+window.addEventListener("beforeinstallprompt", e => {
+  e.preventDefault(); _pwaEvt = e;
+  if (document.getElementById("pwaBtn")) return;
+  const b = document.createElement("button"); b.id = "pwaBtn"; b.textContent = "📱 앱 설치";
+  b.style.cssText = "position:fixed;right:16px;bottom:16px;z-index:99;background:#4dabf7;color:#0b1015;border:none;border-radius:999px;padding:10px 16px;font-weight:700;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,.4);cursor:pointer";
+  b.onclick = async () => { b.remove(); _pwaEvt.prompt(); _pwaEvt = null; };
+  document.body.appendChild(b);
+});
 </script>
 </body>
 </html>
