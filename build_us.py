@@ -546,6 +546,8 @@ def main():
     with open(D("docs", "us-daily.html"), "w", encoding="utf-8") as f:
         f.write(render_daily(us, k, built))
     print(f"미국 페이지 생성: docs/us.html, docs/us-daily.html (미국 최신 {us.index.max().date()}, 한미 최신 {k.index.max().date()})")
+    import pwa
+    pwa.finalize(D("docs"))
 
 
 if __name__ == "__main__":

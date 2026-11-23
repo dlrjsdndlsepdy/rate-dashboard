@@ -212,3 +212,7 @@ import interpret  # noqa: E402
 with open(os.path.join(ROOT, "docs", "daily.html"), "w", encoding="utf-8") as f:
     f.write(interpret.render(df.set_index("date"), built))
 print("오늘의 해석 생성: docs/daily.html")
+
+# 앱(PWA) 설치 정보
+import pwa  # noqa: E402
+pwa.finalize(os.path.join(ROOT, "docs"))
