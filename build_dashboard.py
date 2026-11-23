@@ -81,7 +81,7 @@ HTML = r"""<!DOCTYPE html>
   <div class="panel"><h2 id="t2"></h2><div class="chartbox"><canvas id="c2"></canvas></div></div>
 
   <div class="foot">
-    <b>출처</b> · 한국은행 ECOS 시장금리(일별, 금융투자협회 최종호가수익률 기준): 국고채 3·10·30년, 회사채 AA− 3년, CD·CP 91일.<br>
+    <b>출처</b> · 한국은행 ECOS 시장금리(일별, 금융투자협회 최종호가수익률 기준): 국고채 3·10·30년, 회사채 AA− 3년, CD·CP 91일, 주식시장(코스피·코스닥).<br>
     금융투자협회 채권시가평가기준수익률(평가사 평균, 민평): 여전채 = '금융채 II(금융기관채) 무보증' AA−·A+ 3년, 기업금융 탭 = '회사채 I(공모) 무보증' AA−·A−·BBB+ 3년. 민평 지표의 스프레드는 같은 민평 기준 국고 3년 대비.<br>
     <b>정의</b> · 장단기 = 국고 10Y−3Y · 초장기 = 국고 30Y−10Y · 회사채 스프레드 = 회사채 AA−−국고 3Y ·
     등급 스프레드 = 여전채 A+ − AA− · CP−CD = CP 91일 − CD 91일.<br>
@@ -124,6 +124,12 @@ const TABS = [
     cards:[["cd91","CD 91일","%"],["cp91","CP 91일","%"],["cp_cd_spread_bp","CP − CD 스프레드","bp"],["ktb3","국고채 3년","%"]],
     c1:["단기 금리 (%)", [["cd91","CD 91일"],["cp91","CP 91일"],["ktb3","국고 3년"]]],
     c2:["단기 스프레드 (bp)", [["cp_cd_spread_bp","CP − CD"]]] },
+  { id:"risk", name:"위험자산",
+    desc:"주식은 신용위험의 선행지표예요. 기업이 어려워지면 보통 주가가 먼저 빠지고 크레딧 스프레드가 뒤따라 벌어져요. 둘이 같은 방향이면 신호가 강하고, 엇갈리면 경고 신호예요.",
+    cards:[["kospi","코스피","idx"],["kosdaq","코스닥","idx"],["corp_spread_bp","회사채 크레딧 스프레드","bp"],
+           ["yeojeon_spread_bp","여전채 AA− 크레딧 스프레드","bp"],["corp_a_spread_bp","A− 크레딧 스프레드","bp"]],
+    c1:["코스피 vs 회사채 크레딧 스프레드", [["kospi","코스피 (왼쪽)"],["corp_spread_bp","회사채 AA− 스프레드 (bp, 오른쪽)","right"]]],
+    c2:["코스닥 vs A− 크레딧 스프레드", [["kosdaq","코스닥 (왼쪽)"],["corp_a_spread_bp","A− 스프레드 (bp, 오른쪽)","right"]]] },
 ];
 
 function lastTwo(arr){ const v = arr.map((x,i)=>[x,i]).filter(p=>p[0]!==null); return [v.at(-1), v.at(-2)]; }
@@ -150,15 +156,18 @@ function renderCards(){
   for (const [k,name,unit] of cur.cards){
     if (!D[k] || D[k].every(x=>x===null)) continue;
     const [c, p] = lastTwo(D[k]); const val = c[0];
-    const diffBp = unit === "%" ? (val - p[0]) * 100 : (val - p[0]);
-    const cls = diffBp > 0.05 ? "up" : diffBp < -0.05 ? "down" : "flat";
+    // idx(주가지수): 변화를 %로 / %: 금리, 변화를 bp로 / bp: 스프레드
+    const diffBp = unit === "%" ? (val - p[0]) * 100 : unit === "idx" ? (val / p[0] - 1) * 100 : (val - p[0]);
+    const du = unit === "idx" ? "%" : "bp";
+    const cls = diffBp > 0.005 ? "up" : diffBp < -0.005 ? "down" : "flat";
     const arrow = cls === "up" ? "▲" : cls === "down" ? "▼" : "–";
-    const shown = unit === "%" ? val.toFixed(3) + "%" : val.toFixed(1) + "bp";
+    const shown = unit === "%" ? val.toFixed(3) + "%" : unit === "idx"
+      ? val.toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2}) : val.toFixed(1) + "bp";
     const pr = pctRank(D[k]);
     el.insertAdjacentHTML("beforeend", `
       <div class="card"><a class="label" href="guide.html#${k}" title="이 지표 설명 보기">${name} ⓘ</a>
         <div class="val">${shown}</div>
-        <div class="chg ${cls}">${arrow} ${Math.abs(diffBp).toFixed(1)}bp (전일 대비)</div>
+        <div class="chg ${cls}">${arrow} ${Math.abs(diffBp).toFixed(unit === "idx" ? 2 : 1)}${du} (전일 대비)</div>
         <div class="pct">1년 중 위치 ${pr} / 100</div>
         <div class="bar"><i style="left:calc(${pr}% - 2px)"></i></div></div>`);
   }
@@ -166,9 +175,11 @@ function renderCards(){
 function fill(chart, series){
   const s = range ? Math.max(0, D.date.length - range) : 0;
   chart.data.labels = D.date.slice(s);
-  chart.data.datasets = series.filter(([k]) => D[k]).map(([k,name],i) => ({
+  chart.data.datasets = series.filter(([k]) => D[k]).map(([k,name,side],i) => ({
     label:name, data:D[k].slice(s), borderColor:COLORS[i], backgroundColor:COLORS[i],
-    borderWidth:2, pointRadius:0, tension:0.15, spanGaps:true }));
+    borderWidth:2, pointRadius:0, tension:0.15, spanGaps:true, yAxisID: side === "right" ? "y1" : "y" }));
+  // 오른쪽 축은 그 축을 쓰는 지표가 있을 때만 표시
+  chart.options.scales.y1 = { position:"right", display: series.some(x => x[2] === "right"), grid:{ drawOnChartArea:false } };
   chart.update();
 }
 function render(){

@@ -35,7 +35,9 @@ NAMES = {
     "yeojeon_grade_bp": ("여전채 등급 스프레드(A+−AA−)", "bp"), "cp_cd_spread_bp": ("CP−CD 스프레드", "bp"),
     "corp_a_spread_bp": ("A− 크레딧 스프레드", "bp"), "corp_grade_a_bp": ("등급 스프레드(A−−AA−)", "bp"),
     "corp_grade_bbb_bp": ("등급 스프레드(BBB+−AA−)", "bp"),
+    "kospi": ("코스피", "idx"), "kosdaq": ("코스닥", "idx"),
 }
+NOISE_IDX = 0.3        # 주가지수 보합 기준 (%)
 
 
 def _bp(x: float) -> str:
@@ -45,8 +47,23 @@ def _bp(x: float) -> str:
     return f"{s}{abs(x):.1f}bp"
 
 
+def _unit(col):
+    return NAMES.get(col, ("", "%"))[1]
+
+
+def _chg(col, x):
+    """변화량 표시: 주가지수는 %, 나머지는 bp."""
+    if _unit(col) != "idx":
+        return _bp(x)
+    if x is None or math.isnan(x):
+        return "n/a"
+    s = "+" if x > 0 else ("−" if x < 0 else "±")
+    return f"{s}{abs(x):.2f}%"
+
+
 def _lvl(col: str, v: float) -> str:
-    return f"{v:.3f}%" if NAMES.get(col, ("", "%"))[1] == "%" else f"{v:.1f}bp"
+    u = _unit(col)
+    return f"{v:.3f}%" if u == "%" else (f"{v:,.2f}" if u == "idx" else f"{v:.1f}bp")
 
 
 class Day:
@@ -65,19 +82,25 @@ class Day:
     def lvl(self, c):
         return float(self.df[c].iloc[self.i])
 
-    def d(self, c):            # 전일 대비 (bp)
+    def _chg(self, c, a, b):   # a→b 변화: 주가지수는 %, 금리는 bp, 스프레드는 bp
+        if _unit(c) == "idx":
+            return (b / a - 1) * 100
+        return (b - a) * self._scale(c)
+
+    def d(self, c):            # 전일 대비
         if not self.has(c):
             return float("nan")
-        return (self.df[c].iloc[self.i] - self.df[c].iloc[self.i - 1]) * self._scale(c)
+        return self._chg(c, self.df[c].iloc[self.i - 1], self.df[c].iloc[self.i])
 
     def d5(self, c):           # 5영업일 누적 (bp)
         j = self.i - TREND_N
         if c not in self.df.columns or j < 0 or pd.isna(self.df[c].iloc[j]) or pd.isna(self.df[c].iloc[self.i]):
             return float("nan")
-        return (self.df[c].iloc[self.i] - self.df[c].iloc[j]) * self._scale(c)
+        return self._chg(c, self.df[c].iloc[j], self.df[c].iloc[self.i])
 
     def sigma(self, c):        # 최근 1년 일간 변화 표준편차 (bp)
-        s = self.df[c].iloc[max(0, self.i - WINDOW): self.i + 1].diff().dropna() * self._scale(c)
+        w = self.df[c].iloc[max(0, self.i - WINDOW): self.i + 1]
+        s = (w.pct_change() * 100 if _unit(c) == "idx" else w.diff() * self._scale(c)).dropna()
         return float(s.std()) if len(s) > 20 else float("nan")
 
     def pct(self, c):          # 1년 중 위치 0~100
@@ -87,8 +110,8 @@ class Day:
         return round(100 * (s < s.iloc[-1]).sum() / (len(s) - 1))
 
 
-def _dir(x):
-    if math.isnan(x) or abs(x) < NOISE_BP:
+def _dir(x, noise=None):
+    if math.isnan(x) or abs(x) < (NOISE_BP if noise is None else noise):
         return 0
     return 1 if x > 0 else -1
 
@@ -183,13 +206,28 @@ def interpret_day(t: Day) -> dict:
         elif _dir(du) < 0:
             out["signals"].append(("R13", f"30Y−10Y {_bp(du)} 축소 → 초장기물 수요 강세 방향", ["ultra_spread_bp"]))
 
+    # ---- R14/R15 주식 × 크레딧 교차
+    if t.has("kospi") and t.has("corp_spread_bp"):
+        k1, s1 = _dir(t.d("kospi"), NOISE_IDX), _dir(t.d("corp_spread_bp"))
+        k5, s5 = t.d5("kospi"), t.d5("corp_spread_bp")
+        cc = ["kospi", "corp_spread_bp"]
+        if k1 < 0 and s1 > 0:
+            out["signals"].append(("R14", f"코스피 {_chg('kospi', t.d('kospi'))} + 회사채 스프레드 {_bp(t.d('corp_spread_bp'))} → 주식·크레딧 양쪽에서 위험 회피가 확인돼요. 신호가 강한 날이에요.", cc))
+        elif k1 > 0 and s1 < 0:
+            out["signals"].append(("R14", f"코스피 {_chg('kospi', t.d('kospi'))} + 회사채 스프레드 {_bp(t.d('corp_spread_bp'))} → 주식·크레딧 동반 위험 선호.", cc))
+        if _dir(k5, 1.0) > 0 and _dir(s5, 2.0) > 0:
+            out["signals"].append(("R15", f"5일간 코스피 {_chg('kospi', k5)}인데 회사채 스프레드는 {_bp(s5)} → 주가는 오르는데 크레딧은 경계하는 괴리. 크레딧 시장이 주식보다 먼저 위험을 반영하는 경우가 많아 주의 신호예요.", cc))
+        elif k5 <= -3 and _dir(s5, 2.0) == 0:
+            out["signals"].append(("R15", f"5일간 코스피 {_chg('kospi', k5)} 하락에도 회사채 스프레드는 {_bp(s5)}로 안정 → 주식 단독 조정, 아직 신용시장으로 번지지 않았어요.", cc))
+
     # ---- A. 이례적 변동 / 고점·저점권 / 추세
     for c in NAMES:
         if not t.has(c):
             continue
         dv, sg = t.d(c), t.sigma(c)
         if not math.isnan(sg) and sg > 0 and abs(dv) > SIGMA_K * sg:
-            out["flags"].append(("⚡", f"{NAMES[c][0]} {_bp(dv)} — 평소 하루 변동폭(1σ≈{sg:.1f}bp)의 {abs(dv) / sg:.1f}배, 이례적 변동"))
+            u = "%" if _unit(c) == "idx" else "bp"
+            out["flags"].append(("⚡", f"{NAMES[c][0]} {_chg(c, dv)} — 평소 하루 변동폭(1σ≈{sg:.{2 if u == '%' else 1}f}{u})의 {abs(dv) / sg:.1f}배, 이례적 변동"))
     hi, lo = [], []
     for c in NAMES:
         if not t.has(c):
@@ -207,12 +245,13 @@ def interpret_day(t: Day) -> dict:
         out["flags"].append(("▼", "1년 저점권: " + ", ".join(lo)))
 
     trends = []
-    for c in ["ktb3", "ktb10", "corp_spread_bp", "yeojeon_spread_bp", "cp_cd_spread_bp"]:
+    for c in ["ktb3", "ktb10", "corp_spread_bp", "yeojeon_spread_bp", "cp_cd_spread_bp", "kospi"]:
         if not t.has(c):
             continue
-        a, b = _dir(t.d(c)), _dir(t.d5(c))
+        nz = NOISE_IDX if _unit(c) == "idx" else None
+        a, b = _dir(t.d(c), nz), _dir(t.d5(c), nz)
         if a and b:
-            trends.append(f"{NAMES[c][0]} 5일 {_bp(t.d5(c))} → " + ("추세 지속" if a == b else "오늘은 되돌림"))
+            trends.append(f"{NAMES[c][0]} 5일 {_chg(c, t.d5(c))} → " + ("추세 지속" if a == b else "오늘은 되돌림"))
     out["trends"] = trends
 
     # ---- 업권별 시사점
@@ -265,6 +304,8 @@ RULES_DOC = [
     ("R11", "단기 자금시장", "CP−CD 확대(특히 여전채 스프레드는 보합일 때) → 단기 스트레스 선행. 1년 고점권이면 별도 표시"),
     ("R12", "단기 금리 압력", "CD 상승폭 > 국고 3년 상승폭 → 변동금리 대출금리 상승 요인"),
     ("R13", "초장기 수요", "30Y−10Y 축소 또는 역전 → 보험·연기금 초장기물 수요 강세"),
+    ("R14", "주식·크레딧 동조", f"코스피(±{NOISE_IDX}% 이상)와 회사채 스프레드가 반대 방향 → 하락+확대면 위험 회피 확인, 상승+축소면 위험 선호 (머튼 모형: 주가는 신용위험의 선행지표)"),
+    ("R15", "주식·크레딧 괴리", "5일간 코스피 +1% 이상인데 스프레드 +2bp 이상 → 크레딧 선행 경고 / 코스피 −3% 이하인데 스프레드 ±2bp 미만 → 주식 단독 조정"),
 ]
 
 CSS = """

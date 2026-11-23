@@ -29,6 +29,8 @@ FRED = {
     "ig_oas": "BAMLC0A0CM",     # ICE BofA 미국 투자등급 회사채 OAS (%)
     "hy_oas": "BAMLH0A0HYM2",   # ICE BofA 미국 하이일드 OAS (%)
     "tips10": "DFII10",         # 10년 TIPS 실질금리
+    "sp500": "SP500",           # S&P 500 지수
+    "vix": "VIXCLS",            # VIX (S&P 500 내재변동성, '공포지수')
 }
 
 # ECOS: (통계표, 주기, 항목코드)

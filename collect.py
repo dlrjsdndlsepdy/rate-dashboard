@@ -32,6 +32,9 @@ ITEMS = {
     "ktb30":   ("010230000", "국고채 30년"),
     "cd91":    ("010502000", "CD 91일"),
     "cp91":    ("010503000", "CP 91일"),
+    # 주식(위험자산) — 통계표 802Y001 주식시장(일)
+    "kospi":   ("0001000", "코스피", "802Y001"),
+    "kosdaq":  ("0089000", "코스닥", "802Y001"),
 }
 
 OUT_PATH = os.path.join(os.path.dirname(__file__), "data", "rates.csv")
@@ -53,9 +56,9 @@ def list_items() -> None:
         print(x.get("ITEM_CODE"), "|", x.get("ITEM_NAME"), "|", x.get("CYCLE"))
 
 
-def fetch(item_code: str, start: str, end: str) -> pd.Series:
+def fetch(item_code: str, start: str, end: str, stat: str = STAT_CODE) -> pd.Series:
     url = (f"{BASE}/StatisticSearch/{API_KEY}/json/kr/1/100000/"
-           f"{STAT_CODE}/D/{start}/{end}/{item_code}")
+           f"{stat}/D/{start}/{end}/{item_code}")
     js = _get(url)
     if "StatisticSearch" not in js:
         raise RuntimeError(
@@ -161,6 +164,7 @@ def update_kofia(dates: pd.DatetimeIndex) -> pd.DataFrame:
         add.index.name = "date"
         have = pd.concat([have, add])
         have = have[~have.index.duplicated(keep="last")].sort_index()
+        os.makedirs(os.path.dirname(KOFIA_PATH), exist_ok=True)
         have.to_csv(KOFIA_PATH, float_format="%.3f")
     if len(have):
         print(f"  여전채 AA- 3년 최신: {have.index.max().date()} = {have['yeojeon_aa'].iloc[-1]}")
@@ -178,7 +182,7 @@ def main() -> None:
     today = dt.datetime.now(dt.timezone(dt.timedelta(hours=9))).strftime("%Y%m%d")
     print(f"ECOS 수집: {START_DATE} ~ {today}")
 
-    series = {col: fetch(code, START_DATE, today) for col, (code, _) in ITEMS.items()}
+    series = {col: fetch(v[0], START_DATE, today, *v[2:]) for col, v in ITEMS.items()}
     df = pd.DataFrame(series).dropna(how="all")
     df.index.name = "date"
 

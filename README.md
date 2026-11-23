@@ -7,10 +7,10 @@ GitHub Actions로 매 영업일 데이터를 수집하고 GitHub Pages로 배포
 
 | 페이지 | 내용 |
 |---|---|
-| [한국 대시보드](https://dlrjsdndlsepdy.github.io/rate-dashboard/) | 공통 · 캐피탈 · 기업금융 · 보험 · 은행 탭 |
-| [한국 오늘의 해석](https://dlrjsdndlsepdy.github.io/rate-dashboard/daily.html) | 규칙 R1~R13 기반 일일 해석, 최근 20영업일 기록 |
-| [미국 대시보드](https://dlrjsdndlsepdy.github.io/rate-dashboard/us.html) | 커브 · 정책·단기 · 크레딧 · 물가·실질 · 한미 비교 탭 |
-| [미국 오늘의 해석](https://dlrjsdndlsepdy.github.io/rate-dashboard/us-daily.html) | 규칙 U1~U12 기반 일일 해석, 한미 연결 |
+| [한국 대시보드](https://dlrjsdndlsepdy.github.io/rate-dashboard/) | 공통 · 캐피탈 · 기업금융 · 보험 · 은행 · 위험자산 탭 |
+| [한국 오늘의 해석](https://dlrjsdndlsepdy.github.io/rate-dashboard/daily.html) | 규칙 R1~R15 기반 일일 해석, 최근 20영업일 기록 |
+| [미국 대시보드](https://dlrjsdndlsepdy.github.io/rate-dashboard/us.html) | 커브 · 정책·단기 · 크레딧 · 물가·실질 · 위험자산 · 한미 비교 탭 |
+| [미국 오늘의 해석](https://dlrjsdndlsepdy.github.io/rate-dashboard/us-daily.html) | 규칙 U1~U14 기반 일일 해석, 한미 연결 |
 | [지표 가이드](https://dlrjsdndlsepdy.github.io/rate-dashboard/guide.html) | 지표별 정의 · 의미 · 해석 방법 · 출처 |
 
 ## 지표
@@ -24,10 +24,12 @@ GitHub Actions로 매 영업일 데이터를 수집하고 GitHub Pages로 배포
 | 기업금융 | 회사채 AA−·A−·BBB+ 3년(민평), A− 크레딧 스프레드, 등급 스프레드(A−−AA−, BBB+−AA−) |
 | 보험 | 국고채 10·30년, 초장기 스프레드(30Y−10Y), 장단기 스프레드 |
 | 은행 | CD·CP 91일, CP−CD, 국고채 3년 |
+| 위험자산 | 코스피, 코스닥, 회사채·여전채·A− 크레딧 스프레드 |
 | 미국 커브 | 미 국채 3M·2Y·10Y·30Y, 2s10s, 10Y−3M |
 | 미국 정책·단기 | 연준 기준금리 상·하단, 실효 연방기금금리, SOFR, 정책 기대 갭(2Y − 기준금리 중간값) |
 | 미국 크레딧 | ICE BofA 투자등급·하이일드 OAS, HY−IG |
 | 미국 물가·실질 | 10년 TIPS 실질금리, 10년 기대인플레이션(BEI = 명목 − TIPS) |
+| 미국 위험자산 | S&P 500, VIX, 하이일드·투자등급 스프레드 |
 | 한미 비교 | 한미 10년 금리차, 한미 기준금리차, 환헤지 비용 근사(미 3M − CD 91일), 원/달러 |
 
 ## 해석 로직
@@ -41,7 +43,7 @@ GitHub Actions로 매 영업일 데이터를 수집하고 GitHub Pages로 배포
 | 고점권 / 저점권 | 1년 중 위치 ≥ 90 / ≤ 10 |
 | 추세 | 최근 5영업일 누적 변화와 당일 방향 비교 (지속 / 되돌림) |
 
-**한국 규칙 (R1~R13)**
+**한국 규칙 (R1~R15)**
 
 | 규칙 | 조건 | 해석 |
 |---|---|---|
@@ -52,8 +54,10 @@ GitHub Actions로 매 영업일 데이터를 수집하고 GitHub Pages로 배포
 | R11 | CP−CD 확대 (여전채 스프레드 보합 시 별도 표시) | 단기 자금시장 스트레스 |
 | R12 | CD 상승폭 > 국고 3년 상승폭 | 단기 금리 상승 압력 |
 | R13 | 30Y−10Y 축소·역전 | 초장기물 수요 강세 |
+| R14 | 코스피와 회사채 스프레드 반대 방향 | 주식·크레딧 동반 위험 회피·선호 |
+| R15 | 5일간 코스피↑·스프레드↑ / 코스피 급락·스프레드 안정 | 크레딧 선행 경고 / 주식 단독 조정 |
 
-**미국 규칙 (U1~U12)**
+**미국 규칙 (U1~U14)**
 
 | 규칙 | 조건 | 해석 |
 |---|---|---|
@@ -64,6 +68,8 @@ GitHub Actions로 매 영업일 데이터를 수집하고 GitHub Pages로 배포
 | U10 | 2s10s·10Y−3M 신규 역전·지속·해소 | 커브 역전 상태 |
 | U11 | 한미 10년 금리차 변화 | 외국인 채권 수급·환율 요인 |
 | U12 | 미 10년 2σ 변동 다음 날 한국 10년 반응, 120일 회귀 계수 β | 한미 금리 동조화 |
+| U13 | VIX·HY 스프레드 동반 상승, VIX 20·30 구간 | Risk-off 확인, 변동성 국면 |
+| U14 | 5일간 S&P 500↑·HY↑ / S&P 500 급락·HY 안정 | 크레딧 선행 경고 / 주식 단독 조정 |
 
 ## 방법론
 
@@ -79,9 +85,9 @@ GitHub Actions로 매 영업일 데이터를 수집하고 GitHub Pages로 배포
 | 출처 | 항목 |
 |---|---|
 | 한국은행 ECOS — 시장금리(일별, 817Y002) | 국고채 3·10·30년, 회사채 AA− 3년, CD·CP 91일 |
-| 한국은행 ECOS — 722Y001, 731Y001 | 한국은행 기준금리, 원/미국달러 매매기준율 |
+| 한국은행 ECOS — 722Y001, 731Y001, 802Y001 | 한국은행 기준금리, 원/미국달러 매매기준율, 코스피·코스닥 |
 | 금융투자협회 KOFIA — 채권시가평가기준수익률(평가사 평균) | 국고채, 금융채 II(여전채) AA−·A+, 회사채 I(공모) AA−·A−·BBB+ — 잔존 3년 |
-| FRED | DGS3MO, DGS2, DGS10, DGS30, DFEDTARU, DFEDTARL, DFF, SOFR, DFII10, BAMLC0A0CM, BAMLH0A0HYM2 |
+| FRED | DGS3MO, DGS2, DGS10, DGS30, DFEDTARU, DFEDTARL, DFF, SOFR, DFII10, BAMLC0A0CM, BAMLH0A0HYM2, SP500, VIXCLS |
 
 ## 구조
 
@@ -105,8 +111,10 @@ flowchart LR
 | `collect.py` | ECOS·KOFIA 수집, 스프레드 산출 → `data/rates.csv`, `data/kofia.csv` |
 | `collect_us.py` | FRED 수집, ECOS 기준금리·환율 수집 → `data/us.csv`, `data/kr_extra.csv` |
 | `build_dashboard.py` | 한국 대시보드 생성, 해석·가이드 페이지 생성 호출 |
-| `interpret.py` | 한국 해석 엔진 (R1~R13) |
-| `build_us.py` | 미국 대시보드 및 해석 엔진 (U1~U12) |
+| `interpret.py` | 한국 해석 엔진 (R1~R15) |
+| `build_us.py` | 미국 대시보드 및 해석 엔진 (U1~U14) |
+| `minichart.py` | 해석 페이지 그래프 |
+| `pwa.py` | 설치형 웹앱(PWA) 설정 |
 | `guide_page.py` | 지표 가이드 |
 | `.github/workflows/update.yml` | 실행 스케줄 (평일 UTC 11:30) |
 

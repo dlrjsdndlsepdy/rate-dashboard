@@ -39,6 +39,10 @@ def chart(frame: str, df: pd.DataFrame, cols, names: dict) -> dict:
 def _fmt(v, unit):
     if v is None or math.isnan(v):
         return "n/a"
+    if unit == "idx":
+        return f"{v:,.2f}"
+    if unit == "pt":
+        return f"{v:.2f}"
     return f"{v:.2f}%" if unit == "%" else (f"{v:,.1f}원" if unit == "원" else f"{v:.1f}bp")
 
 
@@ -84,12 +88,13 @@ document.querySelectorAll("canvas[data-cols]").forEach(cv => {
   const F = MC[cv.dataset.frame]; if (!F) return;
   const cols = cv.dataset.cols.split(","), labels = cv.dataset.labels.split("|"), units = cv.dataset.units.split(",");
   const N = """ + str(SHOW_N) + """, s = Math.max(0, F.date.length - N);
-  const mixed = new Set(units.map(u => u === "%" ? "%" : "x")).size > 1;
+  const base = units[0], mixed = units.some(u => u !== base);   // 첫 지표와 단위가 다르면 오른쪽 축
+  const uname = u => ({ "%": "%", bp: "bp", idx: "지수", pt: "pt", "원": "원" }[u] || u);
   const ds = [];
   cols.forEach((c, i) => {
     const full = F[c] || []; const v = full.slice(s);
-    const axis = mixed && units[i] !== "%" ? "y1" : "y";
-    ds.push({ label: labels[i] + (mixed ? (units[i] === "%" ? " (%, 왼쪽)" : ` (${units[i]}, 오른쪽)`) : ""),
+    const axis = mixed && units[i] !== base ? "y1" : "y";
+    ds.push({ label: labels[i] + (mixed ? ` (${uname(units[i])}, ${axis === "y" ? "왼쪽" : "오른쪽"})` : ""),
       data: v, borderColor: MCOL[i], backgroundColor: MCOL[i], borderWidth: 2, tension: 0.15, spanGaps: true, yAxisID: axis,
       pointRadius: v.map((_, j) => j === v.length - 1 ? 4 : 0) });
     if (cols.length === 1) {   // 단일 지표면 1년 평균 점선
