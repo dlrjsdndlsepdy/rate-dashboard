@@ -71,7 +71,8 @@ HTML = r"""<!DOCTYPE html>
   <div class="foot">
     출처: 한국은행 ECOS 시장금리(일별) — 금융투자협회 최종호가수익률 기준.<br>
     장단기 스프레드 = 국고 10년 − 국고 3년 · 회사채 크레딧 스프레드 = 회사채 AA−(3년) − 국고 3년.<br>
-    '1년 내 위치'는 최근 약 260영업일 중 오늘 값보다 낮았던 날의 비율입니다.
+    여전채 = 금융투자협회 채권시가평가기준수익률(평가사 평균) '금융채 II(금융기관채) 무보증 AA−' 3년, 스프레드는 같은 민평 기준 국고채 3년 대비.<br>
+    '1년 중 위치'는 최근 약 260영업일 중 오늘 값보다 낮았던 날의 비율입니다.
   </div>
 </div>
 
@@ -81,8 +82,10 @@ const CARDS = [
   {k:"ktb3",  name:"국고채 3년",        unit:"%"},
   {k:"ktb10", name:"국고채 10년",       unit:"%"},
   {k:"corp_aa", name:"회사채 AA− 3년",  unit:"%"},
+  {k:"yeojeon_aa", name:"여전채 AA− 3년 (민평)", unit:"%"},
   {k:"term_spread_bp", name:"장단기 스프레드 (10Y−3Y)", unit:"bp"},
   {k:"corp_spread_bp", name:"회사채 크레딧 스프레드", unit:"bp"},
+  {k:"yeojeon_spread_bp", name:"여전채 크레딧 스프레드", unit:"bp"},
 ];
 
 function lastTwo(arr){ const v = arr.map((x,i)=>[x,i]).filter(p=>p[0]!==null); return [v.at(-1), v.at(-2)]; }
@@ -105,7 +108,7 @@ for (const c of CARDS){
     <div class="card"><div class="label">${c.name}</div>
       <div class="val">${shown}</div>
       <div class="chg ${cls}">${arrow} ${Math.abs(diffBp).toFixed(1)}bp (전일 대비)</div>
-      <div class="pct">1년 내 위치: 하위 ${pctRank(D[c.k])}%</div></div>`);
+      <div class="pct">1년 중 위치: ${pctRank(D[c.k])} / 100 <span style="opacity:.7">(0=최저, 100=최고)</span></div></div>`);
 }
 
 Chart.defaults.color = "#8b95a3";
@@ -122,9 +125,11 @@ function mk(id, series){
 }
 const charts = [
   mk("rates", [{k:"ktb3",name:"국고 3년",color:"#4dabf7"},{k:"ktb10",name:"국고 10년",color:"#ffa94d"},
-               {k:"corp_aa",name:"회사채 AA− 3년",color:"#69db7c"}]),
+               {k:"corp_aa",name:"회사채 AA− 3년",color:"#69db7c"},
+               {k:"yeojeon_aa",name:"여전채 AA− 3년",color:"#da77f2"}]),
   mk("spreads", [{k:"term_spread_bp",name:"장단기 (10Y−3Y)",color:"#ffa94d"},
-                 {k:"corp_spread_bp",name:"회사채 AA− − 국고 3년",color:"#69db7c"}]),
+                 {k:"corp_spread_bp",name:"회사채 AA− − 국고 3년",color:"#69db7c"},
+                 {k:"yeojeon_spread_bp",name:"여전채 AA− − 국고 3년",color:"#da77f2"}]),
 ];
 function setRange(n){
   const s = n ? Math.max(0, D.date.length - n) : 0;
