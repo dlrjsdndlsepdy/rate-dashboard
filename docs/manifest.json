@@ -30,6 +30,10 @@
   ],
   "shortcuts": [
     {
+      "name": "증시 한눈에",
+      "url": "./markets.html"
+    },
+    {
       "name": "오늘의 해석",
       "url": "./daily.html"
     },
