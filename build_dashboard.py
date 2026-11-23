@@ -220,9 +220,12 @@ print("지표 가이드 생성: docs/guide.html")
 
 # 오늘의 해석 페이지 (규칙 기반)
 import interpret  # noqa: E402
+import institutions  # noqa: E402
 with open(os.path.join(ROOT, "docs", "daily.html"), "w", encoding="utf-8") as f:
     f.write(interpret.render(df.set_index("date"), built))
 print("오늘의 해석 생성: docs/daily.html")
+institutions.write_logic(os.path.join(ROOT, "docs"), built)
+print("해석 로직 생성: docs/logic.html")
 
 # 앱(PWA) 설치 정보
 import pwa  # noqa: E402

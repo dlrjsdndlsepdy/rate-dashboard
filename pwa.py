@@ -37,8 +37,8 @@ MANIFEST = {
 }
 
 # 서비스워커: 항상 최신 데이터를 먼저 받고(network-first), 인터넷이 없으면 마지막으로 본 화면을 보여줌
-SW = """const CACHE = "rate-dashboard-v2";
-const CORE = ["./", "./index.html", "./markets.html", "./daily.html", "./us.html", "./us-daily.html", "./guide.html", "./manifest.json", "./icon-192.png"];
+SW = """const CACHE = "rate-dashboard-v3";
+const CORE = ["./", "./index.html", "./markets.html", "./daily.html", "./us.html", "./us-daily.html", "./guide.html", "./logic.html", "./manifest.json", "./icon-192.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).catch(() => {})); self.skipWaiting(); });
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))));

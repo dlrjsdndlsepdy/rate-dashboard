@@ -14,6 +14,7 @@ import math
 
 import pandas as pd
 
+import institutions
 import minichart
 
 NOISE_BP = 1.0      # 보합 기준
@@ -364,7 +365,7 @@ def _block(r: dict, full: bool = True, df: pd.DataFrame = None) -> str:
     if full and r.get("trends"):
         h.append('<div class="muted" style="margin-top:12px">5일 추세</div><ul>' +
                  "".join(f"<li>{v}</li>" for v in r["trends"]) + "</ul>")
-    if r["sector"]:
+    if r["sector"] and not (full and df is not None):
         h.append('<div class="muted" style="margin-top:12px">업권별 시사점</div><ul class="sec">' +
                  "".join(f"<li><b>{k}</b>{v}</li>" for k, v in r["sector"].items()) + "</ul>")
     return "".join(h)
@@ -385,12 +386,13 @@ def render(df: pd.DataFrame, built: str) -> str:
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>오늘의 해석 · Rates & Spreads Dashboard</title>
-<style>{CSS}{minichart.CSS}</style></head>
+<style>{CSS}{minichart.CSS}{institutions.CSS}</style></head>
 <body><div class="wrap">
-  <div><a href="index.html">← 대시보드</a> · <a href="guide.html">📘 지표 가이드</a> · <a href="us-daily.html">🇺🇸 미국 오늘의 해석</a></div>
+  <div><a href="index.html">← 대시보드</a> · <a href="guide.html">📘 지표 가이드</a> · <a href="us-daily.html">🇺🇸 미국 오늘의 해석</a> · <a href="logic.html">🧩 해석 로직</a></div>
   <h1>🧭 오늘의 해석</h1>
   <div class="sub">기준일 <b>{today["date"]}</b> · 페이지 생성 {built} · 아래 '해석 기준'의 규칙을 매일 기계적으로 적용한 결과예요.</div>
   <div class="card">{_block(today, True, df)}</div>
+  {institutions.section(df)}
   <div class="muted">⚠️ 숫자의 움직임이 보내는 '신호'를 읽은 것이에요. 원인(금통위, 해외 지표, 수급 등)은 그날 뉴스와 맞춰 확인하세요.</div>
   <h2>최근 {len(results) - 1}영업일 해석 기록</h2>
   {hist}
