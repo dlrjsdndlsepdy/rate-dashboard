@@ -31,7 +31,12 @@ FRED = {
     "tips10": "DFII10",         # 10년 TIPS 실질금리
     "sp500": "SP500",           # S&P 500 지수
     "vix": "VIXCLS",            # VIX (S&P 500 내재변동성, '공포지수')
+    "nasdaq": "NASDAQCOM",      # 나스닥 종합지수
+    "nikkei": "NIKKEI225",      # 니케이 225
+    "wti": "DCOILWTICO",        # WTI 유가 (달러/배럴)
+    "dxy": "DTWEXBGS",          # 달러인덱스 (연준 광의 무역가중, 2006.1=100)
 }
+MARKET_ONLY = ["nasdaq", "nikkei", "wti", "dxy"]   # 증시 페이지 전용(미국 대시보드 데이터에는 넣지 않음)
 
 # ECOS: (통계표, 주기, 항목코드)
 ECOS = {
@@ -74,6 +79,11 @@ def main() -> None:
 
     print("FRED 수집")
     us = pd.DataFrame({c: fred(sid) for c, sid in FRED.items()})
+    # 증시 페이지용: 주가지수는 국채 휴장일(주식시장은 개장)도 빠지지 않게 따로 저장
+    eq = us[["sp500", "vix"] + MARKET_ONLY].dropna(how="all")
+    eq.index.name = "date"
+    eq.to_csv(os.path.join(ROOT, "data", "us_equity.csv"), float_format="%.4f")
+    us = us.drop(columns=MARKET_ONLY)
     # 국채 거래일 기준으로 맞추고, 정책금리처럼 매일 있는 시리즈는 그날 값 사용
     us = us[us["ust10"].notna()].copy()
     us[["fed_upper", "fed_lower", "effr", "sofr"]] = us[["fed_upper", "fed_lower", "effr", "sofr"]].ffill()

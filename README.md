@@ -11,6 +11,7 @@ GitHub Actions로 매 영업일 데이터를 수집하고 GitHub Pages로 배포
 | [한국 오늘의 해석](https://dlrjsdndlsepdy.github.io/rate-dashboard/daily.html) | 규칙 R1~R15 기반 일일 해석, 최근 20영업일 기록 |
 | [미국 대시보드](https://dlrjsdndlsepdy.github.io/rate-dashboard/us.html) | 커브 · 정책·단기 · 크레딧 · 물가·실질 · 위험자산 · 한미 비교 탭 |
 | [미국 오늘의 해석](https://dlrjsdndlsepdy.github.io/rate-dashboard/us-daily.html) | 규칙 U1~U14 기반 일일 해석, 한미 연결 |
+| [증시 한눈에](https://dlrjsdndlsepdy.github.io/rate-dashboard/markets.html) | 코스피·코스닥·나스닥·S&P 500·니케이, 외국인 수급, 원/달러·달러인덱스·WTI·VIX |
 | [지표 가이드](https://dlrjsdndlsepdy.github.io/rate-dashboard/guide.html) | 지표별 정의 · 의미 · 해석 방법 · 출처 |
 
 ## 지표
@@ -85,9 +86,9 @@ GitHub Actions로 매 영업일 데이터를 수집하고 GitHub Pages로 배포
 | 출처 | 항목 |
 |---|---|
 | 한국은행 ECOS — 시장금리(일별, 817Y002) | 국고채 3·10·30년, 회사채 AA− 3년, CD·CP 91일 |
-| 한국은행 ECOS — 722Y001, 731Y001, 802Y001 | 한국은행 기준금리, 원/미국달러 매매기준율, 코스피·코스닥 |
+| 한국은행 ECOS — 722Y001, 731Y001, 802Y001 | 한국은행 기준금리, 원/미국달러 매매기준율, 코스피·코스닥, 외국인 순매수 |
 | 금융투자협회 KOFIA — 채권시가평가기준수익률(평가사 평균) | 국고채, 금융채 II(여전채) AA−·A+, 회사채 I(공모) AA−·A−·BBB+ — 잔존 3년 |
-| FRED | DGS3MO, DGS2, DGS10, DGS30, DFEDTARU, DFEDTARL, DFF, SOFR, DFII10, BAMLC0A0CM, BAMLH0A0HYM2, SP500, VIXCLS |
+| FRED | DGS3MO, DGS2, DGS10, DGS30, DFEDTARU, DFEDTARL, DFF, SOFR, DFII10, BAMLC0A0CM, BAMLH0A0HYM2, SP500, VIXCLS, NASDAQCOM, NIKKEI225, DCOILWTICO, DTWEXBGS |
 
 ## 구조
 
@@ -114,6 +115,7 @@ flowchart LR
 | `interpret.py` | 한국 해석 엔진 (R1~R15) |
 | `build_us.py` | 미국 대시보드 및 해석 엔진 (U1~U14) |
 | `minichart.py` | 해석 페이지 그래프 |
+| `markets.py` | 증시 한눈에 페이지 |
 | `pwa.py` | 설치형 웹앱(PWA) 설정 |
 | `guide_page.py` | 지표 가이드 |
 | `.github/workflows/update.yml` | 실행 스케줄 (평일 UTC 11:30) |

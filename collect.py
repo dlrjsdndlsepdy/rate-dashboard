@@ -35,6 +35,8 @@ ITEMS = {
     # 주식(위험자산) — 통계표 802Y001 주식시장(일)
     "kospi":   ("0001000", "코스피", "802Y001"),
     "kosdaq":  ("0089000", "코스닥", "802Y001"),
+    "foreign_kospi":  ("0030000", "외국인 순매수(코스피, 억원)", "802Y001"),
+    "foreign_kosdaq": ("0113000", "외국인 순매수(코스닥, 억원)", "802Y001"),
 }
 
 OUT_PATH = os.path.join(os.path.dirname(__file__), "data", "rates.csv")

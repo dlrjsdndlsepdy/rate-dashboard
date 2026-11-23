@@ -17,7 +17,7 @@ import minichart
 ROOT = os.path.dirname(__file__)
 D = lambda *p: os.path.join(ROOT, *p)  # noqa: E731
 
-NOISE = {"default": 1.0, "ig_bp": 2.0, "hy_bp": 2.0, "hy_ig_bp": 2.0, "usdkrw": 2.0}
+NOISE = {"default": 1.0, "ig_bp": 2.0, "hy_bp": 2.0, "hy_ig_bp": 2.0, "usdkrw": 2.0, "sp500": 0.3, "vix": 1.0}
 SIGMA_K, HI_PCT, LO_PCT, WINDOW, TREND_N, HISTORY_N = 2.0, 90, 10, 260, 5, 20
 
 # 표시 이름, 단위(% → 변화는 bp로 / bp / 원)
@@ -33,6 +33,8 @@ NAMES = {
     "bok_rate": ("한국은행 기준금리", "%"), "fed_upper_k": ("연준 기준금리 상단", "%"),
     "rate_gap_bp": ("한미 기준금리차 (한−미 상단)", "bp"), "usdkrw": ("원/달러 환율", "원"),
     "hedge_bp": ("환헤지 비용 근사 (미 3M − CD 91일)", "bp"),
+    # 위험자산 (idx: 변화를 %로, pt: 변화를 포인트로)
+    "sp500": ("S&P 500", "idx"), "vix": ("VIX", "pt"),
 }
 
 
@@ -87,6 +89,11 @@ const TABS = [
     desc:"10년 금리 = 실질금리(TIPS) + 기대인플레이션(BEI). 금리가 왜 움직였는지 둘로 나눠 볼 수 있어요.",
     cards:[["ust10","미 국채 10년","%"],["tips10","10년 실질금리(TIPS)","%"],["bei10","10년 기대인플레이션(BEI)","%"]],
     charts:[["10년 금리 분해 (%)",[["ust10","명목 10년"],["tips10","실질금리"],["bei10","기대인플레이션"]]]] },
+  { id:"risk", name:"위험자산", src:"U",
+    desc:"S&P 500과 VIX(공포지수)를 하이일드 스프레드와 함께 봐요. 주가 하락·VIX 급등·HY 확대가 겹치면 글로벌 Risk-off가 확인되고, 주가는 오르는데 HY가 벌어지면 크레딧이 먼저 보내는 경고예요.",
+    cards:[["sp500","S&P 500","idx"],["vix","VIX","pt"],["hy_bp","하이일드(HY) 스프레드","bp"],["ig_bp","투자등급(IG) 스프레드","bp"]],
+    charts:[["S&P 500 vs 하이일드 스프레드",[["sp500","S&P 500 (왼쪽)"],["hy_bp","HY 스프레드 (bp, 오른쪽)","right"]]],
+            ["VIX vs 하이일드 스프레드",[["vix","VIX (왼쪽)"],["hy_bp","HY 스프레드 (bp, 오른쪽)","right"]]]] },
   { id:"korea", name:"한미 비교", src:"K",
     desc:"한국 날짜 기준. 미국 값은 그 시점에 공표돼 있던 가장 최근 값이에요(FRED는 보통 1~2영업일 늦게 공표). 금리차는 외국인 채권 수급·환율과, 단기 금리차는 보험사 해외투자의 환헤지 비용과 연결돼요.",
     cards:[["ktb10","한국 국고 10년","%"],["ust10_k","미 국채 10년","%"],["kr_us10_bp","한미 10년 금리차 (한−미)","bp"],
@@ -134,7 +141,7 @@ PAGE = r"""<!DOCTYPE html>
 <body><div class="wrap">
   <h1>🇺🇸 미국 금리 · 크레딧 대시보드</h1>
   <div class="sub">미국 최신 <b id="asofU"></b> · 한미 비교 최신 <b id="asofK"></b> · 페이지 생성 __BUILT__<br>
-    <a href="index.html">🇰🇷 한국 대시보드</a> · <a href="us-daily.html">🧭 미국 오늘의 해석</a> · <a href="guide.html#us">📘 지표 가이드</a></div>
+    <a href="index.html">🇰🇷 한국 대시보드</a> · <a href="markets.html">📈 증시</a> · <a href="us-daily.html">🧭 미국 오늘의 해석</a> · <a href="guide.html#us">📘 지표 가이드</a></div>
   <div class="tabs" id="tabs"></div>
   <p class="desc" id="desc"></p>
   <div class="cards" id="cards"></div>
@@ -145,7 +152,7 @@ PAGE = r"""<!DOCTYPE html>
   <div id="charts"></div>
   <div class="foot">
     <b>출처</b> · FRED(세인트루이스 연준): 미 국채 DGS3MO·DGS2·DGS10·DGS30, 연준 기준금리 DFEDTARU·DFEDTARL, 실효 FF DFF, SOFR, 10년 TIPS DFII10,
-    ICE BofA 미국 회사채 OAS(투자등급 BAMLC0A0CM, 하이일드 BAMLH0A0HYM2). 한국: 한국은행 ECOS(국고 10년, CD 91일, 기준금리, 원/달러 매매기준율).<br>
+    ICE BofA 미국 회사채 OAS(투자등급 BAMLC0A0CM, 하이일드 BAMLH0A0HYM2), S&P 500(SP500), VIX(VIXCLS). 한국: 한국은행 ECOS(국고 10년, CD 91일, 기준금리, 원/달러 매매기준율).<br>
     <b>정의</b> · 기대인플레이션(BEI) = 명목 10년 − TIPS 10년 · 정책 기대 갭 = 국채 2년 − 연준 기준금리 중간값 ·
     환헤지 비용 근사 = 미 국채 3개월 − 한국 CD 91일 (실제 스왑포인트와는 차이가 있어요).<br>
     '1년 중 위치'는 최근 약 260영업일 중 오늘 값보다 낮았던 날의 비율(0=1년 최저, 100=1년 최고)입니다.
@@ -169,13 +176,14 @@ function render(){
   for (const [k,name,unit] of cur.cards){
     if(!D[k] || D[k].every(x=>x===null)) continue;
     const [c,p]=lastTwo(D[k]); const val=c[0];
-    const diff = unit==="%" ? (val-p[0])*100 : (val-p[0]);
-    const du = unit==="원" ? "원" : "bp";
-    const cls = diff>0.05?"up":diff<-0.05?"down":"flat"; const ar = cls==="up"?"▲":cls==="down"?"▼":"–";
-    const shown = unit==="%" ? val.toFixed(3)+"%" : unit==="원" ? val.toFixed(1)+"원" : val.toFixed(1)+"bp";
+    const diff = unit==="%" ? (val-p[0])*100 : unit==="idx" ? (val/p[0]-1)*100 : (val-p[0]);
+    const du = unit==="원" ? "원" : unit==="idx" ? "%" : unit==="pt" ? "pt" : "bp";
+    const cls = diff>0.005?"up":diff<-0.005?"down":"flat"; const ar = cls==="up"?"▲":cls==="down"?"▼":"–";
+    const shown = unit==="%" ? val.toFixed(3)+"%" : unit==="원" ? val.toFixed(1)+"원" : unit==="idx"
+      ? val.toLocaleString("en-US",{minimumFractionDigits:2, maximumFractionDigits:2}) : unit==="pt" ? val.toFixed(2) : val.toFixed(1)+"bp";
     const pr=pctRank(D[k]);
     el.insertAdjacentHTML("beforeend", `<div class="card"><a class="label" href="guide.html#${k.replace(/_k$/,"")}">${name} ⓘ</a>
-      <div class="val">${shown}</div><div class="chg ${cls}">${ar} ${Math.abs(diff).toFixed(1)}${du} (전일 대비)</div>
+      <div class="val">${shown}</div><div class="chg ${cls}">${ar} ${Math.abs(diff).toFixed(unit==="idx"||unit==="pt"?2:1)}${du} (전일 대비)</div>
       <div class="pct">1년 중 위치 ${pr} / 100</div><div class="bar"><i style="left:calc(${pr}% - 2px)"></i></div></div>`);
   }
   charts.forEach(c=>c.destroy()); charts=[];
@@ -184,10 +192,12 @@ function render(){
   cur.charts.forEach(([title, series], i)=>{
     box.insertAdjacentHTML("beforeend", `<div class="panel"><h2>${title}</h2><div class="chartbox"><canvas id="cv${i}"></canvas></div></div>`);
     charts.push(new Chart(document.getElementById("cv"+i), { type:"line",
-      data:{ labels:D.date.slice(s), datasets: series.filter(([k])=>D[k]).map(([k,n],j)=>({label:n, data:D[k].slice(s),
-        borderColor:COLORS[j], backgroundColor:COLORS[j], borderWidth:2, pointRadius:0, tension:0.15, spanGaps:true})) },
+      data:{ labels:D.date.slice(s), datasets: series.filter(([k])=>D[k]).map(([k,n,side],j)=>({label:n, data:D[k].slice(s),
+        borderColor:COLORS[j], backgroundColor:COLORS[j], borderWidth:2, pointRadius:0, tension:0.15, spanGaps:true,
+        yAxisID: side==="right" ? "y1" : "y"})) },
       options:{ responsive:true, maintainAspectRatio:false, interaction:{mode:"index", intersect:false},
-        plugins:{legend:{labels:{boxWidth:12}}}, scales:{x:{ticks:{maxTicksLimit:8}}} } }));
+        plugins:{legend:{labels:{boxWidth:12}}}, scales:{x:{ticks:{maxTicksLimit:8}},
+        y1:{position:"right", display: series.some(x=>x[2]==="right"), grid:{drawOnChartArea:false}}} } }));
   });
 }
 const tabsEl=document.getElementById("tabs");
@@ -230,17 +240,21 @@ class Day:
     def lvl(self, c):
         return float(self.df[c].iloc[self.i])
 
+    def _chg(self, c, a, b):
+        return (b / a - 1) * 100 if NAMES.get(c, ("", "%"))[1] == "idx" else (b - a) * self.sc(c)
+
     def d(self, c):
-        return (self.df[c].iloc[self.i] - self.df[c].iloc[self.i - 1]) * self.sc(c) if self.has(c) else float("nan")
+        return self._chg(c, self.df[c].iloc[self.i - 1], self.df[c].iloc[self.i]) if self.has(c) else float("nan")
 
     def d5(self, c):
         j = self.i - TREND_N
         if c not in self.df.columns or j < 0 or pd.isna(self.df[c].iloc[j]) or pd.isna(self.df[c].iloc[self.i]):
             return float("nan")
-        return (self.df[c].iloc[self.i] - self.df[c].iloc[j]) * self.sc(c)
+        return self._chg(c, self.df[c].iloc[j], self.df[c].iloc[self.i])
 
     def sigma(self, c):
-        s = self.df[c].iloc[max(0, self.i - WINDOW): self.i + 1].diff().dropna() * self.sc(c)
+        w = self.df[c].iloc[max(0, self.i - WINDOW): self.i + 1]
+        s = (w.pct_change() * 100 if NAMES.get(c, ("", "%"))[1] == "idx" else w.diff() * self.sc(c)).dropna()
         s = s[s != 0] if c in ("fed_upper", "fed_lower", "bok_rate", "fed_upper_k") else s
         return float(s.std()) if len(s) > 20 else float("nan")
 
@@ -258,6 +272,10 @@ def _dir(x, c="default"):
 
 def _lvl(c, v):
     u = NAMES.get(c, ("", "%"))[1]
+    if u == "idx":
+        return f"{v:,.2f}"
+    if u == "pt":
+        return f"{v:.2f}"
     return f"{v:.3f}%" if u == "%" else (f"{v:.1f}원" if u == "원" else f"{v:.1f}bp")
 
 
@@ -333,13 +351,34 @@ def interpret_us(t: Day) -> dict:
         elif now < 0:
             o["signals"].append(("U10", f"{NAMES[c][0]} {now:.1f}bp, 역전 지속", [c]))
 
+    _risk_rules(t, o)
     _flags(t, o, [c for c in NAMES if not c.endswith("_k") and c in t.df.columns])
-    for c in ["ust2", "ust10", "hy_bp"]:
+    for c in ["ust2", "ust10", "hy_bp", "sp500"]:
         if t.has(c):
             a, b = _dir(t.d(c), c), _dir(t.d5(c), c)
             if a and b:
-                o["trends"].append(f"{NAMES[c][0]} 5일 {_bp(t.d5(c))} → " + ("추세 지속" if a == b else "오늘은 되돌림"))
+                u = "%" if NAMES[c][1] == "idx" else "bp"
+                o["trends"].append(f"{NAMES[c][0]} 5일 {_bp(t.d5(c), u)} → " + ("추세 지속" if a == b else "오늘은 되돌림"))
     return o
+
+
+def _risk_rules(t: Day, o: dict):
+    """U13/U14: 주식·VIX × 하이일드 스프레드 교차."""
+    if t.has("vix") and t.has("hy_bp"):
+        v, dv, dh = t.lvl("vix"), t.d("vix"), t.d("hy_bp")
+        if _dir(dv, "vix") > 0 and _dir(dh, "hy_bp") > 0:
+            o["signals"].append(("U13", f"VIX {_bp(dv, 'pt')} 상승 + HY 스프레드 {_bp(dh)} → 주식 변동성과 신용위험이 같이 커짐. 글로벌 Risk-off 확인", ["vix", "hy_bp"]))
+        if v >= 30:
+            o["signals"].append(("U13", f"VIX {v:.1f} → 30 이상 '공포' 구간. 위험자산 전반의 변동성 확대 국면", ["vix"]))
+        elif v >= 20 and _dir(dv, "vix") > 0:
+            o["signals"].append(("U13", f"VIX {v:.1f} → 20~30 '경계' 구간으로 상승", ["vix"]))
+    if t.has("sp500") and t.has("hy_bp"):
+        k5, h5 = t.d5("sp500"), t.d5("hy_bp")
+        cc = ["sp500", "hy_bp"]
+        if k5 >= 1 and h5 >= 10:
+            o["signals"].append(("U14", f"5일간 S&P 500 {_bp(k5, '%')}인데 HY 스프레드 {_bp(h5)} → 주가는 오르는데 크레딧은 경계하는 괴리. 크레딧이 먼저 경고하는 경우가 많아 주의", cc))
+        elif k5 <= -3 and abs(h5) < 10:
+            o["signals"].append(("U14", f"5일간 S&P 500 {_bp(k5, '%')} 하락에도 HY 스프레드 {_bp(h5)} → 주식 단독 조정, 아직 신용시장 전이는 제한적", cc))
 
 
 def interpret_kr(t: Day, k: pd.DataFrame) -> dict:
@@ -395,7 +434,7 @@ def _flags(t, o, cols):
             continue
         dv, sg = t.d(c), t.sigma(c)
         if not math.isnan(sg) and sg > 0 and abs(dv) > SIGMA_K * sg:
-            u = "원" if NAMES[c][1] == "원" else "bp"
+            u = {"원": "원", "idx": "%", "pt": "pt"}.get(NAMES[c][1], "bp")
             o["flags"].append(("⚡", f"{NAMES[c][0]} {_bp(dv, u)} — 평소 하루 변동폭(1σ≈{sg:.1f}{u})의 {abs(dv) / sg:.1f}배, 이례적 변동"))
         p = t.pct(c)
         win = t.df[c].iloc[max(0, t.i - WINDOW + 1): t.i + 1].dropna()
@@ -428,6 +467,8 @@ RULES = [
     ("U10", "커브 역전", "2s10s·10Y−3M의 신규 역전, 역전 지속, 역전 해소 표시"),
     ("U11", "한미 금리차", "한−미 10년 금리차 하락(한국이 상대적으로 낮아짐) → 외국인 채권 유출·원화 약세 요인"),
     ("U12", "동조화", "미 10년 2σ 변동 다음 날 한국 10년 반응, 최근 120일 동조화 계수 β(미국 1bp당 한국 반응)"),
+    ("U13", "변동성·크레딧", "VIX(±1pt 이상)와 HY 스프레드(±2bp 이상) 동반 상승 → Risk-off 확인. VIX 20~30 경계, 30 이상 공포 구간"),
+    ("U14", "주식·크레딧 괴리", "5일간 S&P 500 +1% 이상인데 HY +10bp 이상 → 크레딧 선행 경고 / S&P 500 −3% 이하인데 HY ±10bp 미만 → 주식 단독 조정"),
 ]
 
 DAILY_CSS = """
@@ -546,6 +587,11 @@ def main():
     with open(D("docs", "us-daily.html"), "w", encoding="utf-8") as f:
         f.write(render_daily(us, k, built))
     print(f"미국 페이지 생성: docs/us.html, docs/us-daily.html (미국 최신 {us.index.max().date()}, 한미 최신 {k.index.max().date()})")
+    try:
+        import markets
+        markets.build(built)
+    except Exception as e:  # noqa: BLE001
+        print(f"[경고] 증시 페이지 생성 실패: {e}")
     import pwa
     pwa.finalize(D("docs"))
 
