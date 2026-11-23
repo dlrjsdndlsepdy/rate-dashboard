@@ -334,7 +334,7 @@ def render(df: pd.DataFrame, built: str) -> str:
 <title>오늘의 해석 · Rates & Spreads Dashboard</title>
 <style>{CSS}</style></head>
 <body><div class="wrap">
-  <div><a href="index.html">← 대시보드</a> · <a href="guide.html">📘 지표 가이드</a></div>
+  <div><a href="index.html">← 대시보드</a> · <a href="guide.html">📘 지표 가이드</a> · <a href="us-daily.html">🇺🇸 미국 오늘의 해석</a></div>
   <h1>🧭 오늘의 해석</h1>
   <div class="sub">기준일 <b>{today["date"]}</b> · 페이지 생성 {built} · 아래 '해석 기준'의 규칙을 매일 기계적으로 적용한 결과예요.</div>
   <div class="card">{_block(today)}</div>

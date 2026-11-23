@@ -66,7 +66,7 @@ HTML = r"""<!DOCTYPE html>
 <body>
 <div class="wrap">
   <h1>금리 · 스프레드 대시보드</h1>
-  <div class="sub">최신 데이터 <b id="asof"></b> · 페이지 생성 __BUILT__ · <a href="daily.html">🧭 오늘의 해석</a> · <a href="guide.html">📘 지표 가이드</a></div>
+  <div class="sub">최신 데이터 <b id="asof"></b> · 페이지 생성 __BUILT__ · <a href="daily.html">🧭 오늘의 해석</a> · <a href="guide.html">📘 지표 가이드</a> · <a href="us.html">🇺🇸 미국</a></div>
 
   <div class="tabs" id="tabs"></div>
   <p class="desc" id="desc"></p>
