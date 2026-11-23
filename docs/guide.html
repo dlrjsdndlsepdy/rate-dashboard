@@ -29,10 +29,10 @@
   .back { font-size:14px; }
 </style></head>
 <body><div class="wrap">
-  <div class="back"><a href="index.html">← 대시보드로 돌아가기</a> · <a href="daily.html">🧭 오늘의 해석</a></div>
+  <div class="back"><a href="index.html">← 🇰🇷 한국 대시보드</a> · <a href="us.html">🇺🇸 미국 대시보드</a> · <a href="daily.html">🧭 오늘의 해석</a></div>
   <h1>지표 가이드</h1>
-  <div class="sub">대시보드의 각 곡선과 카드가 무엇을 뜻하는지, 어떻게 읽는지 정리한 페이지예요. · 갱신 2026-11-23 18:28 KST</div>
-  <nav class="toc"><b>바로가기</b><a href="#basics">기본 용어</a> <a href="#common">공통</a> <a href="#capital">캐피탈</a> <a href="#credit">기업금융</a> <a href="#insurance">보험</a> <a href="#bank">은행</a></nav>
+  <div class="sub">대시보드의 각 곡선과 카드가 무엇을 뜻하는지, 어떻게 읽는지 정리한 페이지예요. · 갱신 2026-11-23 18:50 KST</div>
+  <nav class="toc"><b>바로가기</b><a href="#basics">기본 용어</a> <a href="#common">공통</a> <a href="#capital">캐피탈</a> <a href="#credit">기업금융</a> <a href="#insurance">보험</a> <a href="#bank">은행</a> · <a href="#us">🇺🇸 미국</a> <a href="#us-curve">커브</a> <a href="#us-policy">정책·단기</a> <a href="#us-credit">크레딧</a> <a href="#us-inflation">물가·실질</a> <a href="#us-korea">한미 비교</a></nav>
   <h2 id="basics">기본 용어</h2>
   <div class="item"><dl class="basics"><dt>bp (베이시스 포인트)</dt><dd>0.01%p예요. 금리가 3.50%에서 3.62%가 되면 '12bp 올랐다'고 해요.</dd><dt>스프레드</dt><dd>두 금리의 차이예요. 국고채 대비 스프레드는 '신용 위험에 대한 추가 보상'으로 읽어요.</dd><dt>최종호가수익률</dt><dd>금융투자협회가 지정 증권사들로부터 받은 호가를 평균 낸 금리예요. 하루 두 번 발표돼요. 국고채·대표 회사채처럼 거래가 활발한 채권에 쓰여요.</dd><dt>민평 (시가평가기준수익률)</dt><dd>민간 채권평가사 5곳(나이스P&I, 한국자산평가, KIS자산평가, 에프앤자산평가, 이지자산평가)이 평가한 금리의 평균이에요. 등급·만기별로 촘촘하게 나와서 여전채·하위 등급 비교에 써요.</dd><dt>기준을 섞지 않기</dt><dd>최종호가 기준 지표와 민평 기준 지표를 직접 빼서 비교하면 안 돼요. 그래서 민평 지표의 스프레드는 같은 민평 국고 3년을 기준으로 계산했어요.</dd><dt>1년 중 위치</dt><dd>최근 약 260영업일 중 오늘 값보다 낮았던 날의 비율이에요. 0이면 1년 최저, 100이면 1년 최고예요.</dd><dt>전일 대비</dt><dd>직전 영업일 대비 변화예요. 금리(%)는 bp로 환산해 보여줘요.</dd></dl></div>
   <h2 id="common">공통 탭</h2><p class="tabdesc">국고채 커브와 대표 회사채 금리. 모든 금리의 출발점이에요. <a href="index.html#common">대시보드에서 보기 →</a></p><div class="item" id="ktb3"><h3>국고채 3년</h3>
@@ -119,6 +119,82 @@
   <p><span class="k">무엇인가</span>CD 91일, CP 91일, CP − CD 스프레드, 국고채 3년을 함께 봐요.</p>
   <p><span class="k">왜 중요한가</span>CD는 변동금리 대출의 기준이라 은행 대출금리와 순이자마진(NIM)에 바로 연결돼요. 국고 3년과 CD의 차이로 시장이 기준금리를 어떻게 예상하는지도 볼 수 있어요.</p>
   <p><span class="k">어떻게 읽나</span>CD가 오르면 대출금리가 오르고, CP−CD가 벌어지면 은행보다 비은행·기업 쪽 단기 자금이 먼저 빡빡해지고 있다는 뜻이에요.</p>
-  <p class="src">출처 · 각 지표 설명은 캐피탈·공통 탭 항목을 참고하세요.</p></div>
+  <p class="src">출처 · 각 지표 설명은 캐피탈·공통 탭 항목을 참고하세요.</p></div><h2 id="us" style="font-size:22px;margin-top:48px">🇺🇸 미국 대시보드 지표</h2><p class="tabdesc"><a href="us.html">미국 대시보드 열기 →</a></p><h2 id="us-curve">미국 · 커브 탭</h2><p class="tabdesc">미 국채 수익률 곡선이에요. 출처는 FRED(미 연준 H.15 통계)예요. <a href="us.html#curve">대시보드에서 보기 →</a></p><div class="item" id="ust2"><h3>미 국채 2년</h3>
+  <p><span class="k">무엇인가</span>만기 2년 미 국채의 시장금리(고정만기 기준)예요.</p>
+  <p><span class="k">왜 중요한가</span>향후 1~2년 연준 기준금리 경로에 대한 시장 기대가 가장 잘 반영돼요. 미국판 '국고 3년'이라고 보면 돼요.</p>
+  <p><span class="k">어떻게 읽나</span>오르면 연준 긴축(또는 인하 지연) 기대, 내리면 인하 기대가 커진다는 뜻이에요.</p>
+  <p class="src">출처 · FRED DGS2</p></div><div class="item" id="ust10"><h3>미 국채 10년</h3>
+  <p><span class="k">무엇인가</span>만기 10년 미 국채의 시장금리예요. 전 세계 장기금리의 기준이에요.</p>
+  <p><span class="k">왜 중요한가</span>글로벌 채권·주식 가격, 달러, 한국 장기금리까지 움직이는 가장 중요한 금리예요.</p>
+  <p><span class="k">어떻게 읽나</span>물가 기대(BEI)와 실질금리(TIPS)로 나눠 보면 왜 움직였는지 알 수 있어요(물가·실질 탭).</p>
+  <p class="src">출처 · FRED DGS10</p></div><div class="item" id="ust30"><h3>미 국채 30년</h3>
+  <p><span class="k">무엇인가</span>만기 30년 미 국채의 시장금리예요.</p>
+  <p><span class="k">왜 중요한가</span>연기금·보험사 수요와 미국 재정 적자에 대한 우려가 많이 반영되는 구간이에요.</p>
+  <p><span class="k">어떻게 읽나</span>다른 만기보다 많이 오르면 재정·기간 프리미엄 우려로 읽어요.</p>
+  <p class="src">출처 · FRED DGS30</p></div><div class="item" id="s2s10_bp"><h3>2s10s (10Y−2Y)</h3>
+  <p><span class="k">무엇인가</span>미 국채 10년에서 2년을 뺀 값이에요. 미국 커브 기울기의 대표 지표예요.</p>
+  <p><span class="k">왜 중요한가</span>역전(마이너스)은 경기침체 선행 신호로 유명해요. 2022년 중반부터 2024년까지 이례적으로 길게 역전됐었어요.</p>
+  <p><span class="k">어떻게 읽나</span>커지면 스티프닝, 작아지면 플래트닝. 역전에서 플러스로 돌아서는 '역전 해소' 시점도 경기 판단에서 중요하게 봐요.</p>
+  <p class="src">출처 · FRED DGS10 − DGS2</p></div><div class="item" id="s3m10_bp"><h3>10Y−3M</h3>
+  <p><span class="k">무엇인가</span>미 국채 10년에서 3개월을 뺀 값이에요.</p>
+  <p><span class="k">왜 중요한가</span>연준이 경기 예측력이 높다고 평가해 온 커브 지표예요. 3개월물은 현재 정책금리를 거의 그대로 반영해요.</p>
+  <p><span class="k">어떻게 읽나</span>마이너스면 '지금 정책금리가 장기 균형보다 높다(긴축적)'는 시장 판단이에요.</p>
+  <p class="src">출처 · FRED DGS10 − DGS3MO</p></div><h2 id="us-policy">미국 · 정책·단기 탭</h2><p class="tabdesc">연준 정책금리와 달러 단기 자금시장이에요. <a href="us.html#policy">대시보드에서 보기 →</a></p><div class="item" id="fed_upper"><h3>연준 기준금리 (상단)</h3>
+  <p><span class="k">무엇인가</span>FOMC가 정하는 연방기금금리 목표 범위의 상단이에요. 하단과 0.25%p 차이로 범위를 정해요.</p>
+  <p><span class="k">왜 중요한가</span>전 세계 달러 금리의 기준이에요. 한국은행 정책과 원/달러 환율에도 직접 영향을 줘요.</p>
+  <p><span class="k">어떻게 읽나</span>FOMC 날에만 바뀌어요. 시장 기대는 2년 금리와 정책 기대 갭으로 봐요.</p>
+  <p class="src">출처 · FRED DFEDTARU · DFEDTARL</p></div><div class="item" id="effr"><h3>실효 연방기금금리 (EFFR)</h3>
+  <p><span class="k">무엇인가</span>은행 간 초단기(오버나이트) 자금 거래의 실제 평균 금리예요.</p>
+  <p><span class="k">왜 중요한가</span>연준 목표 범위 안에서 움직이는지로 정책이 잘 전달되는지 확인해요.</p>
+  <p><span class="k">어떻게 읽나</span>범위 상단에 붙거나 벗어나면 단기 자금 부족 신호예요.</p>
+  <p class="src">출처 · FRED DFF</p></div><div class="item" id="sofr"><h3>SOFR</h3>
+  <p><span class="k">무엇인가</span>미 국채를 담보로 한 하루짜리 환매조건부(레포) 거래 금리예요. LIBOR를 대체한 달러 기준금리예요.</p>
+  <p><span class="k">왜 중요한가</span>달러 변동금리 대출·파생상품의 기준이에요. 은행·보험사의 외화 조달·헤지 비용과 연결돼요.</p>
+  <p><span class="k">어떻게 읽나</span>EFFR보다 크게 튀면 레포시장(달러 담보 자금) 경색 신호예요.</p>
+  <p class="src">출처 · FRED SOFR</p></div><div class="item" id="policy_gap_bp"><h3>정책 기대 갭 (2Y − 기준금리 중간값)</h3>
+  <p><span class="k">무엇인가</span>미 국채 2년 금리에서 연준 기준금리 범위의 중간값을 뺀 값이에요.</p>
+  <p><span class="k">왜 중요한가</span>시장이 앞으로 금리를 올릴지 내릴지를 한 숫자로 보여주는 근사 지표예요.</p>
+  <p><span class="k">어떻게 읽나</span>마이너스가 클수록 인하 기대, 플러스면 인상 또는 인하 지연 기대예요. −25bp를 대략 1회 인하로 환산해 읽어요(근사).</p>
+  <p class="src">출처 · FRED DGS2 − (DFEDTARU + DFEDTARL)/2</p></div><h2 id="us-credit">미국 · 크레딧 탭</h2><p class="tabdesc">미국 회사채 시장의 신용 위험 프리미엄이에요. <a href="us.html#credit">대시보드에서 보기 →</a></p><div class="item" id="ig_bp"><h3>투자등급(IG) 스프레드</h3>
+  <p><span class="k">무엇인가</span>BBB 이상 미국 회사채 지수의 국채 대비 옵션조정 스프레드(OAS)예요.</p>
+  <p><span class="k">왜 중요한가</span>우량 기업의 조달 여건이에요. 한국 기업·금융사의 달러채 발행 금리에도 영향을 줘요.</p>
+  <p><span class="k">어떻게 읽나</span>벌어지면 신용 위험 회피예요.</p>
+  <p class="src">출처 · FRED BAMLC0A0CM (ICE BofA US Corporate Index OAS)</p></div><div class="item" id="hy_bp"><h3>하이일드(HY) 스프레드</h3>
+  <p><span class="k">무엇인가</span>BB 이하(투기등급) 미국 회사채 지수의 국채 대비 옵션조정 스프레드예요.</p>
+  <p><span class="k">왜 중요한가</span>경기와 위험 선호에 가장 민감한 크레딧 지표예요. 글로벌 Risk-off가 가장 먼저 보이는 곳이에요.</p>
+  <p><span class="k">어떻게 읽나</span>급하게 벌어지면 글로벌 위험 회피, 좁혀지면 위험 선호예요.</p>
+  <p class="src">출처 · FRED BAMLH0A0HYM2 (ICE BofA US High Yield Index OAS)</p></div><div class="item" id="hy_ig_bp"><h3>HY − IG</h3>
+  <p><span class="k">무엇인가</span>하이일드 스프레드에서 투자등급 스프레드를 뺀 값이에요.</p>
+  <p><span class="k">왜 중요한가</span>미국 크레딧 시장 안의 등급 차별화 정도예요. 한국 탭의 등급 스프레드와 같은 개념이에요.</p>
+  <p><span class="k">어떻게 읽나</span>벌어지면 하위 등급 기업만 골라 피하는 장이에요.</p>
+  <p class="src">출처 · 계산값</p></div><h2 id="us-inflation">미국 · 물가·실질 탭</h2><p class="tabdesc">10년 금리를 '실질금리'와 '기대인플레이션'으로 나눠 봐요. <a href="us.html#inflation">대시보드에서 보기 →</a></p><div class="item" id="tips10"><h3>10년 실질금리 (TIPS)</h3>
+  <p><span class="k">무엇인가</span>물가연동국채(TIPS) 10년물 금리예요. 물가 상승분을 뺀 '실질' 수익률이에요.</p>
+  <p><span class="k">왜 중요한가</span>성장 기대와 통화정책의 긴축 정도를 보여줘요. 주식·금 같은 자산 가격과도 밀접해요.</p>
+  <p><span class="k">어떻게 읽나</span>오르면 실질 자금 조달 비용이 오르는 것, 즉 금융 여건이 긴축적으로 바뀐다는 뜻이에요.</p>
+  <p class="src">출처 · FRED DFII10</p></div><div class="item" id="bei10"><h3>10년 기대인플레이션 (BEI)</h3>
+  <p><span class="k">무엇인가</span>명목 10년 금리에서 TIPS 10년 금리를 뺀 값이에요. 시장이 예상하는 향후 10년 평균 물가 상승률이에요.</p>
+  <p><span class="k">왜 중요한가</span>유가나 관세 같은 물가 충격이 장기금리에 얼마나 반영되는지 보여줘요.</p>
+  <p><span class="k">어떻게 읽나</span>10년 금리가 오른 날 BEI가 주도했다면 '물가 우려', TIPS가 주도했다면 '성장·긴축' 이야기예요.</p>
+  <p class="src">출처 · FRED DGS10 − DFII10</p></div><h2 id="us-korea">미국 · 한미 비교 탭</h2><p class="tabdesc">한국 날짜 기준으로 맞춰서 비교해요. 미국 값은 전날(한국 시간 새벽) 마감값이에요. <a href="us.html#korea">대시보드에서 보기 →</a></p><div class="item" id="kr_us10_bp"><h3>한미 10년 금리차 (한 − 미)</h3>
+  <p><span class="k">무엇인가</span>한국 국고 10년에서 미 국채 10년(전날 마감)을 뺀 값이에요.</p>
+  <p><span class="k">왜 중요한가</span>마이너스가 클수록 한국 채권의 금리 매력이 상대적으로 낮아요. 외국인 채권 자금 흐름과 환율에 영향을 줘요.</p>
+  <p><span class="k">어떻게 읽나</span>더 마이너스로 가면 자금 유출·원화 약세 요인, 줄어들면 반대예요.</p>
+  <p class="src">출처 · ECOS 국고 10년 − FRED DGS10</p></div><div class="item" id="bok_rate"><h3>한국은행 기준금리</h3>
+  <p><span class="k">무엇인가</span>한국은행 금융통화위원회가 정하는 정책금리예요.</p>
+  <p><span class="k">왜 중요한가</span>한미 기준금리차를 계산하는 기준이에요.</p>
+  <p><span class="k">어떻게 읽나</span>금통위 날에만 바뀌어요.</p>
+  <p class="src">출처 · ECOS 722Y001</p></div><div class="item" id="rate_gap_bp"><h3>한미 기준금리차 (한 − 미 상단)</h3>
+  <p><span class="k">무엇인가</span>한국은행 기준금리에서 연준 기준금리 상단을 뺀 값이에요.</p>
+  <p><span class="k">왜 중요한가</span>마이너스면 한국 정책금리가 더 낮은 '역전' 상태예요. 한국은행이 금리를 내릴 때 환율 부담을 키우는 요인이에요.</p>
+  <p><span class="k">어떻게 읽나</span>역전 폭이 커질수록 원화 약세 압력과 한국은행 인하 여력 제약이 커져요.</p>
+  <p class="src">출처 · ECOS 722Y001 − FRED DFEDTARU</p></div><div class="item" id="hedge_bp"><h3>환헤지 비용 근사 (미 3M − CD 91일)</h3>
+  <p><span class="k">무엇인가</span>미 국채 3개월 금리에서 한국 CD 91일 금리를 뺀 값이에요.</p>
+  <p><span class="k">왜 중요한가</span>보험사 등이 달러 자산에 투자하면서 환위험을 없애려고 외환스왑을 쓸 때, 대략 두 나라 단기 금리차만큼 비용이 들어요. 해외채 투자 매력을 판단하는 핵심 변수예요.</p>
+  <p><span class="k">어떻게 읽나</span>플러스가 클수록 헤지 비용이 커서 '헤지 후 수익률'이 낮아져요. 실제 비용은 스왑시장 수급(베이시스) 때문에 이 근사치와 차이가 있어요.</p>
+  <p class="src">출처 · FRED DGS3MO − ECOS CD 91일</p></div><div class="item" id="usdkrw"><h3>원/달러 환율</h3>
+  <p><span class="k">무엇인가</span>1달러를 사는 데 필요한 원화(매매기준율)예요.</p>
+  <p><span class="k">왜 중요한가</span>외화부채·달러 조달 비용, 수입 물가, 외국인 투자 흐름과 연결돼요.</p>
+  <p><span class="k">어떻게 읽나</span>오르면 원화 약세예요. 금리차가 벌어지는 방향과 같이 움직이는지 함께 봐요.</p>
+  <p class="src">출처 · ECOS 731Y001</p></div>
   <p class="src" style="margin-top:32px">이 페이지는 개인 학습용 설명이며 투자 권유가 아닙니다.</p>
 </div></body></html>
