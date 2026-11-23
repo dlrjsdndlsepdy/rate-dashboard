@@ -82,9 +82,12 @@ KOFIA_ROWS = {                 # sigaBrnCd → 컬럼명
     "6010123": "yeojeon_aa",   # 금융채 II(금융기관채) 무보증 AA-  = 여전채(카드·캐피탈채) AA-
     "6010131": "yeojeon_a_plus",  # 금융채 II(금융기관채) 무보증 A+ = 중소형 캐피탈급
     "1010000": "ktb3_mp",      # 국고채권 (같은 민평 기준으로 스프레드 계산용)
+    "7010123": "corp_aa_mp",   # 회사채 I(공모) 무보증 AA-  (민평)
+    "7010133": "corp_a_minus", # 회사채 I(공모) 무보증 A-
+    "7010211": "corp_bbb_plus",# 회사채 I(공모) 무보증 BBB+
 }
 KOFIA_TENOR_TAG = "val8"       # 잔존만기 3년 (val1=3월 … val8=3년 … val16=50년)
-KOFIA_SCHEMA = 2              # KOFIA_ROWS를 바꾸면 1 올리기 → 과거 날짜 재수집
+KOFIA_SCHEMA = 3             # KOFIA_ROWS를 바꾸면 1 올리기 → 과거 날짜 재수집
 KOFIA_MAX_CALLS = 900         # 1회 실행당 최대 조회 일수(첫 실행 백필 포함)
 
 
@@ -191,6 +194,10 @@ def main() -> None:
         df = df.join(kofia.drop(columns=["schema"], errors="ignore"), how="left")
         df["yeojeon_spread_bp"] = ((df["yeojeon_aa"] - df["ktb3_mp"]) * 100).round(1)
         df["yeojeon_grade_bp"] = ((df["yeojeon_a_plus"] - df["yeojeon_aa"]) * 100).round(1)
+        # 기업금융(크레딧): 같은 민평 기준
+        df["corp_a_spread_bp"] = ((df["corp_a_minus"] - df["ktb3_mp"]) * 100).round(1)
+        df["corp_grade_a_bp"] = ((df["corp_a_minus"] - df["corp_aa_mp"]) * 100).round(1)
+        df["corp_grade_bbb_bp"] = ((df["corp_bbb_plus"] - df["corp_aa_mp"]) * 100).round(1)
     except Exception as e:  # noqa: BLE001
         print(f"[경고] KOFIA 수집 실패, 여전채 없이 진행: {e}")
 
