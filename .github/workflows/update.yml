@@ -29,6 +29,17 @@ jobs:
       - name: Build dashboard
         run: python build_dashboard.py
 
+      - name: Collect US (FRED)
+        continue-on-error: true
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}
+        run: python collect_us.py
+
+      - name: Build US pages
+        continue-on-error: true
+        run: python build_us.py
+
       - name: Commit & push
         run: |
           git config user.name "github-actions[bot]"
