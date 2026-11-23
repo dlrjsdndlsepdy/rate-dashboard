@@ -66,7 +66,7 @@ HTML = r"""<!DOCTYPE html>
 <body>
 <div class="wrap">
   <h1>금리 · 스프레드 대시보드</h1>
-  <div class="sub">최신 데이터 <b id="asof"></b> · 페이지 생성 __BUILT__ · <a href="guide.html">📘 지표 가이드</a></div>
+  <div class="sub">최신 데이터 <b id="asof"></b> · 페이지 생성 __BUILT__ · <a href="daily.html">🧭 오늘의 해석</a> · <a href="guide.html">📘 지표 가이드</a></div>
 
   <div class="tabs" id="tabs"></div>
   <p class="desc" id="desc"></p>
@@ -206,3 +206,9 @@ import guide_page  # noqa: E402
 with open(os.path.join(ROOT, "docs", "guide.html"), "w", encoding="utf-8") as f:
     f.write(guide_page.render(built))
 print("지표 가이드 생성: docs/guide.html")
+
+# 오늘의 해석 페이지 (규칙 기반)
+import interpret  # noqa: E402
+with open(os.path.join(ROOT, "docs", "daily.html"), "w", encoding="utf-8") as f:
+    f.write(interpret.render(df.set_index("date"), built))
+print("오늘의 해석 생성: docs/daily.html")

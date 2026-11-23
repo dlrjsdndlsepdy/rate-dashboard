@@ -180,7 +180,7 @@ def render(built: str) -> str:
 <title>지표 가이드 · Rates & Spreads Dashboard</title>
 <style>{CSS}</style></head>
 <body><div class="wrap">
-  <div class="back"><a href="index.html">← 대시보드로 돌아가기</a></div>
+  <div class="back"><a href="index.html">← 대시보드로 돌아가기</a> · <a href="daily.html">🧭 오늘의 해석</a></div>
   <h1>지표 가이드</h1>
   <div class="sub">대시보드의 각 곡선과 카드가 무엇을 뜻하는지, 어떻게 읽는지 정리한 페이지예요. · 갱신 {built}</div>
   <nav class="toc"><b>바로가기</b><a href="#basics">기본 용어</a> {toc}</nav>
