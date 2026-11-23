@@ -29,6 +29,9 @@ ITEMS = {
     "ktb3":    ("010200000", "국고채 3년"),
     "ktb10":   ("010210000", "국고채 10년"),
     "corp_aa": ("010300000", "회사채 AA- 3년"),
+    "ktb30":   ("010230000", "국고채 30년"),
+    "cd91":    ("010502000", "CD 91일"),
+    "cp91":    ("010503000", "CP 91일"),
 }
 
 OUT_PATH = os.path.join(os.path.dirname(__file__), "data", "rates.csv")
@@ -77,10 +80,12 @@ KOFIA_URL = "https://www.kofiabond.or.kr/proframeWeb/XMLSERVICES/"
 KOFIA_PATH = os.path.join(os.path.dirname(__file__), "data", "kofia.csv")
 KOFIA_ROWS = {                 # sigaBrnCd → 컬럼명
     "6010123": "yeojeon_aa",   # 금융채 II(금융기관채) 무보증 AA-  = 여전채(카드·캐피탈채) AA-
+    "6010131": "yeojeon_a_plus",  # 금융채 II(금융기관채) 무보증 A+ = 중소형 캐피탈급
     "1010000": "ktb3_mp",      # 국고채권 (같은 민평 기준으로 스프레드 계산용)
 }
 KOFIA_TENOR_TAG = "val8"       # 잔존만기 3년 (val1=3월 … val8=3년 … val16=50년)
-KOFIA_MAX_CALLS = 900          # 1회 실행당 최대 조회 일수(첫 실행 백필 포함)
+KOFIA_SCHEMA = 2              # KOFIA_ROWS를 바꾸면 1 올리기 → 과거 날짜 재수집
+KOFIA_MAX_CALLS = 900         # 1회 실행당 최대 조회 일수(첫 실행 백필 포함)
 
 
 def _kofia_day(session: requests.Session, ymd: str) -> dict:
@@ -118,7 +123,12 @@ def update_kofia(dates: pd.DatetimeIndex) -> pd.DataFrame:
         have = pd.DataFrame(columns=list(KOFIA_ROWS.values()))
         have.index.name = "date"
 
-    todo = [d for d in dates if d not in have.index][-KOFIA_MAX_CALLS:]
+    # 수집 항목이 바뀌면(KOFIA_SCHEMA 증가) 기존 날짜도 한 번 다시 채움
+    for c in list(KOFIA_ROWS.values()) + ["schema"]:
+        if c not in have.columns:
+            have[c] = float("nan")
+    complete = have.index[have["schema"] == KOFIA_SCHEMA]
+    todo = [d for d in dates if d not in complete][-KOFIA_MAX_CALLS:]
     print(f"KOFIA 수집: 신규 {len(todo)}일")
 
     s = requests.Session()
@@ -137,6 +147,7 @@ def update_kofia(dates: pd.DatetimeIndex) -> pd.DataFrame:
             print(f"  {d.date()} 실패: {e}")
             continue
         if vals:
+            vals["schema"] = KOFIA_SCHEMA
             new[d] = vals
         time.sleep(0.25)       # 서버 부담 줄이기
         if (i + 1) % 100 == 0:
@@ -171,12 +182,15 @@ def main() -> None:
     # 스프레드(bp)
     df["term_spread_bp"] = ((df["ktb10"] - df["ktb3"]) * 100).round(1)
     df["corp_spread_bp"] = ((df["corp_aa"] - df["ktb3"]) * 100).round(1)
+    df["ultra_spread_bp"] = ((df["ktb30"] - df["ktb10"]) * 100).round(1)   # 10-30년 (보험 ALM)
+    df["cp_cd_spread_bp"] = ((df["cp91"] - df["cd91"]) * 100).round(1)     # 단기 신용경색 지표
 
     # KOFIA 여전채 AA- (실패해도 ECOS 데이터는 그대로 저장)
     try:
         kofia = update_kofia(df.index)
-        df = df.join(kofia, how="left")
+        df = df.join(kofia.drop(columns=["schema"], errors="ignore"), how="left")
         df["yeojeon_spread_bp"] = ((df["yeojeon_aa"] - df["ktb3_mp"]) * 100).round(1)
+        df["yeojeon_grade_bp"] = ((df["yeojeon_a_plus"] - df["yeojeon_aa"]) * 100).round(1)
     except Exception as e:  # noqa: BLE001
         print(f"[경고] KOFIA 수집 실패, 여전채 없이 진행: {e}")
 
