@@ -2,8 +2,8 @@
 미국 대시보드(docs/us.html) + 미국 오늘의 해석(docs/us-daily.html) 생성.
 
 입력: data/us.csv (FRED), data/rates.csv (한국), data/kr_extra.csv (기준금리·환율)
-한미 비교 날짜 맞추기: 한국 날짜 t에는 'D-1일까지의 가장 최근 미국 값'을 씀
-(미국 장은 한국 시간 새벽에 끝나므로, 한국 t일 장중에 알려진 미국 값 = 미국 t-1일 마감값)
+한미 비교 날짜 맞추기: 한국 날짜 t에는 '미국 날짜 ≤ t-1일인 값 중 가장 최근 값'을 씀
+(미국 장은 한국 시간 새벽에 끝나고, FRED는 보통 1~2영업일 늦게 공표하므로 실제 쓰인 미국 날짜를 함께 표시)
 """
 import json
 import math
@@ -46,6 +46,7 @@ def load():
     # 한국 날짜 기준 프레임: 미국 값은 (미국 날짜 + 1일) ≤ 한국 날짜 인 가장 최근 값
     k = kr[["ktb10", "ktb3"] + (["cd91"] if "cd91" in kr.columns else [])].copy()
     u = us[["ust10", "ust3m", "fed_upper"]].copy()
+    u["us_src"] = u.index                      # 실제로 쓰인 미국 날짜(표시용)
     u.index = u.index + pd.Timedelta(days=1)
     k = pd.merge_asof(k.sort_index(), u.sort_index(), left_index=True, right_index=True, direction="backward")
     k = k.rename(columns={"ust10": "ust10_k", "fed_upper": "fed_upper_k", "ust3m": "ust3m_k"})
@@ -85,7 +86,7 @@ const TABS = [
     cards:[["ust10","미 국채 10년","%"],["tips10","10년 실질금리(TIPS)","%"],["bei10","10년 기대인플레이션(BEI)","%"]],
     charts:[["10년 금리 분해 (%)",[["ust10","명목 10년"],["tips10","실질금리"],["bei10","기대인플레이션"]]]] },
   { id:"korea", name:"한미 비교", src:"K",
-    desc:"한국 날짜 기준. 미국 값은 전날(한국 시간 새벽) 마감값이에요. 금리차는 외국인 채권 수급·환율과, 단기 금리차는 보험사 해외투자의 환헤지 비용과 연결돼요.",
+    desc:"한국 날짜 기준. 미국 값은 그 시점에 공표돼 있던 가장 최근 값이에요(FRED는 보통 1~2영업일 늦게 공표). 금리차는 외국인 채권 수급·환율과, 단기 금리차는 보험사 해외투자의 환헤지 비용과 연결돼요.",
     cards:[["ktb10","한국 국고 10년","%"],["ust10_k","미 국채 10년","%"],["kr_us10_bp","한미 10년 금리차 (한−미)","bp"],
            ["bok_rate","한국은행 기준금리","%"],["rate_gap_bp","한미 기준금리차 (한−미 상단)","bp"],["hedge_bp","환헤지 비용 근사 (미 3M − CD 91일)","bp"],["usdkrw","원/달러 환율","원"]],
     charts:[["한미 10년 금리 (%)",[["ktb10","한국 10년"],["ust10_k","미국 10년"]]],
@@ -343,7 +344,9 @@ def interpret_kr(t: Day, k: pd.DataFrame) -> dict:
     """한미 연결(U11, U12) + 업권 시사점. 한국 날짜 기준."""
     o = {"date": t.date.strftime("%Y-%m-%d"), "facts": [], "signals": [], "flags": [], "sector": {}}
     if t.has("kr_us10_bp"):
-        o["facts"].append(f"한국 10년 {t.lvl('ktb10'):.3f}% ({_bp(t.d('ktb10'))}), 미국 10년(전날 마감) {t.lvl('ust10_k'):.2f}% "
+        src = k["us_src"].iloc[t.i]
+        src_s = f"{src:%m/%d} 기준" if not pd.isna(src) else "최근 공표값"
+        o["facts"].append(f"한국 10년 {t.lvl('ktb10'):.3f}% ({_bp(t.d('ktb10'))}), 미국 10년({src_s}) {t.lvl('ust10_k'):.2f}% "
                           f"({_bp(t.d('ust10_k'))}), 금리차 {t.lvl('kr_us10_bp'):.1f}bp ({_bp(t.d('kr_us10_bp'))})")
         dg = _dir(t.d("kr_us10_bp"))
         if dg < 0:
@@ -510,7 +513,7 @@ def main():
     us, k = load()
     built = dt.datetime.now(dt.timezone(dt.timedelta(hours=9))).strftime("%Y-%m-%d %H:%M KST")
     os.makedirs(D("docs"), exist_ok=True)
-    data = json.dumps({"U": payload(us), "K": payload(k)}, ensure_ascii=False)
+    data = json.dumps({"U": payload(us), "K": payload(k.drop(columns=["us_src"]))}, ensure_ascii=False)
     with open(D("docs", "us.html"), "w", encoding="utf-8") as f:
         f.write(PAGE.replace("__DATA__", data).replace("__TABS__", TABS_JS).replace("__BUILT__", built))
     with open(D("docs", "us-daily.html"), "w", encoding="utf-8") as f:
