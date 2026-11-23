@@ -6,6 +6,7 @@
 import os
 import sys
 import datetime as dt
+import time
 
 import pandas as pd
 import requests
@@ -45,6 +46,28 @@ ECOS = {
 }
 
 
+def _retry(fn, *args, tries=3):
+    for k in range(tries):
+        try:
+            return fn(*args)
+        except Exception as e:  # noqa: BLE001
+            if k == tries - 1:
+                raise
+            print(f"  재시도 {k + 1}/{tries - 1}: {e}")
+            time.sleep(5 * (k + 1))
+
+
+def _prev(col, *files):
+    """지난번 저장 파일에서 해당 컬럼 값 찾기."""
+    for fn in files:
+        p = os.path.join(ROOT, "data", fn)
+        if os.path.exists(p):
+            d = pd.read_csv(p, parse_dates=["date"]).set_index("date")
+            if col in d.columns:
+                return d[col].dropna()
+    return None
+
+
 def fred(series_id: str) -> pd.Series:
     r = requests.get(
         "https://api.stlouisfed.org/fred/series/observations",
@@ -78,7 +101,21 @@ def main() -> None:
     os.makedirs(os.path.join(ROOT, "data"), exist_ok=True)
 
     print("FRED 수집")
-    us = pd.DataFrame({c: fred(sid) for c, sid in FRED.items()})
+    got = {}
+    for c, sid in FRED.items():
+        try:
+            got[c] = _retry(fred, sid)
+        except Exception as e:  # noqa: BLE001
+            old = _prev(c, "us.csv", "us_equity.csv")
+            if old is None and c == "ust10":
+                raise
+            print(f"[경고] FRED {sid} 실패 → " + ("지난번 저장값 유지" if old is not None else "이번엔 제외") + f": {e}")
+            if old is not None:
+                got[c] = old
+    us = pd.DataFrame(got)
+    for c in FRED:                       # 제외된 시리즈가 있어도 아래 계산이 깨지지 않게
+        if c not in us.columns:
+            us[c] = float("nan")
     # 증시 페이지용: 주가지수는 국채 휴장일(주식시장은 개장)도 빠지지 않게 따로 저장
     eq = us[["sp500", "vix"] + MARKET_ONLY].dropna(how="all")
     eq.index.name = "date"
@@ -108,7 +145,7 @@ def main() -> None:
         if not ECOS_KEY:
             raise RuntimeError("ECOS_API_KEY 없음")
         print("ECOS 수집(한미 비교용)")
-        kr = pd.DataFrame({c: ecos(*a) for c, a in ECOS.items()})
+        kr = pd.DataFrame({c: _retry(ecos, *a) for c, a in ECOS.items()})
         kr.index.name = "date"
         kr.to_csv(os.path.join(ROOT, "data", "kr_extra.csv"), float_format="%.4f")
         print(f"저장: data/kr_extra.csv ({len(kr)}행)")

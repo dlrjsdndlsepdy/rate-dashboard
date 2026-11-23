@@ -58,6 +58,18 @@ def list_items() -> None:
         print(x.get("ITEM_CODE"), "|", x.get("ITEM_NAME"), "|", x.get("CYCLE"))
 
 
+def fetch_retry(*args, tries: int = 3) -> pd.Series:
+    """일시적 서버 오류에 대비해 최대 3번 시도 (5초, 10초 간격)."""
+    for k in range(tries):
+        try:
+            return fetch(*args)
+        except Exception as e:  # noqa: BLE001
+            if k == tries - 1:
+                raise
+            print(f"  재시도 {k + 1}/{tries - 1}: {e}")
+            time.sleep(5 * (k + 1))
+
+
 def fetch(item_code: str, start: str, end: str, stat: str = STAT_CODE) -> pd.Series:
     url = (f"{BASE}/StatisticSearch/{API_KEY}/json/kr/1/100000/"
            f"{stat}/D/{start}/{end}/{item_code}")
@@ -184,7 +196,19 @@ def main() -> None:
     today = dt.datetime.now(dt.timezone(dt.timedelta(hours=9))).strftime("%Y%m%d")
     print(f"ECOS 수집: {START_DATE} ~ {today}")
 
-    series = {col: fetch(v[0], START_DATE, today, *v[2:]) for col, v in ITEMS.items()}
+    prev = pd.read_csv(OUT_PATH, parse_dates=["date"]).set_index("date") if os.path.exists(OUT_PATH) else None
+    series = {}
+    for col, v in ITEMS.items():
+        try:
+            series[col] = fetch_retry(v[0], START_DATE, today, *v[2:])
+        except Exception as e:  # noqa: BLE001
+            if prev is not None and col in prev.columns:
+                print(f"[경고] {col} 수집 실패 → 지난번 저장값 유지: {e}")
+                series[col] = prev[col].dropna()
+            elif col in ("ktb3", "ktb10"):
+                raise   # 핵심 지표가 아예 없으면 진행 불가
+            else:
+                print(f"[경고] {col} 수집 실패, 이번엔 제외: {e}")
     df = pd.DataFrame(series).dropna(how="all")
     df.index.name = "date"
 
@@ -205,7 +229,19 @@ def main() -> None:
         df["corp_grade_a_bp"] = ((df["corp_a_minus"] - df["corp_aa_mp"]) * 100).round(1)
         df["corp_grade_bbb_bp"] = ((df["corp_bbb_plus"] - df["corp_aa_mp"]) * 100).round(1)
     except Exception as e:  # noqa: BLE001
-        print(f"[경고] KOFIA 수집 실패, 여전채 없이 진행: {e}")
+        print(f"[경고] KOFIA 수집 실패: {e}")
+        if os.path.exists(KOFIA_PATH):   # 지난번까지 쌓인 값으로라도 지표 유지
+            print("  → 저장된 kofia.csv 값으로 진행")
+            kofia = pd.read_csv(KOFIA_PATH, parse_dates=["date"]).set_index("date")
+            df = df.join(kofia.drop(columns=["schema"], errors="ignore"), how="left")
+            if {"yeojeon_aa", "ktb3_mp"} <= set(df.columns):
+                df["yeojeon_spread_bp"] = ((df["yeojeon_aa"] - df["ktb3_mp"]) * 100).round(1)
+            if {"yeojeon_a_plus", "yeojeon_aa"} <= set(df.columns):
+                df["yeojeon_grade_bp"] = ((df["yeojeon_a_plus"] - df["yeojeon_aa"]) * 100).round(1)
+            if {"corp_a_minus", "ktb3_mp", "corp_aa_mp", "corp_bbb_plus"} <= set(df.columns):
+                df["corp_a_spread_bp"] = ((df["corp_a_minus"] - df["ktb3_mp"]) * 100).round(1)
+                df["corp_grade_a_bp"] = ((df["corp_a_minus"] - df["corp_aa_mp"]) * 100).round(1)
+                df["corp_grade_bbb_bp"] = ((df["corp_bbb_plus"] - df["corp_aa_mp"]) * 100).round(1)
 
     os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)
     df.to_csv(OUT_PATH, float_format="%.3f")
