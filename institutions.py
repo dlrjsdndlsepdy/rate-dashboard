@@ -259,16 +259,17 @@ def _light(total):
     return ("🟢", "우호") if total >= GREEN else ("🔴", "부담") if total <= RED else ("🟡", "중립")
 
 
-def _checkpoint(series):
+def _checkpoint(series, ref):
     best = None
     for name, (s, mult, pct) in series.items():
         z, ch = _z(s, mult, pct)
         if not math.isnan(z) and (best is None or z > best[0]):
-            best = (z, name, ch, pct)
+            best = (z, name, ch, pct, s.index[-1])
     if not best:
         return "데이터 부족"
-    z, name, ch, pct = best
-    return f"{name} 전일 대비 {_bp(ch, '%' if pct else 'bp', 2 if pct else 1)} — 평소 하루 변동폭의 {z:.1f}배"
+    z, name, ch, pct, d = best
+    when = "" if d == ref else f" ({d:%m/%d} 기준, 데이터 공표 지연)"
+    return f"{name} 전일 대비 {_bp(ch, '%' if pct else 'bp', 2 if pct else 1)}{when} — 평소 하루 변동폭의 {z:.1f}배"
 
 
 def _md(text):
@@ -312,7 +313,7 @@ def section(df: pd.DataFrame) -> str:
   <div class="iq">{spec['q']}</div>
   <div class="chips">{chips}</div>
   <ul>{lines}</ul>
-  <div class="cp">📍 체크포인트: {_checkpoint(series)}</div>
+  <div class="cp">📍 체크포인트: {_checkpoint(series, df.index.max())}</div>
   <div class="as">이 카드의 가정: {' · '.join(spec['assume'])}</div>
 </div>""")
     return (f'<h2 id="inst">🏢 금융기관별 브리핑</h2>'
