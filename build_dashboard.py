@@ -44,7 +44,9 @@ HTML = r"""<!DOCTYPE html>
   .desc { color:var(--muted); font-size:13px; margin:0 0 14px; line-height:1.6; }
   .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; margin-bottom:18px; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
-  .label { color:var(--muted); font-size:12px; }
+  .label { color:var(--muted); font-size:12px; text-decoration:none; display:block; }
+  a.label:hover { color:var(--accent); }
+  .sub a, .desc a { color:var(--accent); text-decoration:none; }
   .val { font-size:26px; font-weight:700; margin:4px 0 2px; font-variant-numeric:tabular-nums; }
   .chg { font-size:13px; font-variant-numeric:tabular-nums; }
   .up { color:var(--up); } .down { color:var(--down); } .flat { color:var(--muted); }
@@ -64,7 +66,7 @@ HTML = r"""<!DOCTYPE html>
 <body>
 <div class="wrap">
   <h1>금리 · 스프레드 대시보드</h1>
-  <div class="sub">최신 데이터 <b id="asof"></b> · 페이지 생성 __BUILT__</div>
+  <div class="sub">최신 데이터 <b id="asof"></b> · 페이지 생성 __BUILT__ · <a href="guide.html">📘 지표 가이드</a></div>
 
   <div class="tabs" id="tabs"></div>
   <p class="desc" id="desc"></p>
@@ -154,7 +156,7 @@ function renderCards(){
     const shown = unit === "%" ? val.toFixed(3) + "%" : val.toFixed(1) + "bp";
     const pr = pctRank(D[k]);
     el.insertAdjacentHTML("beforeend", `
-      <div class="card"><div class="label">${name}</div>
+      <div class="card"><a class="label" href="guide.html#${k}" title="이 지표 설명 보기">${name} ⓘ</a>
         <div class="val">${shown}</div>
         <div class="chg ${cls}">${arrow} ${Math.abs(diffBp).toFixed(1)}bp (전일 대비)</div>
         <div class="pct">1년 중 위치 ${pr} / 100</div>
@@ -171,7 +173,7 @@ function fill(chart, series){
 }
 function render(){
   document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.id === cur.id));
-  document.getElementById("desc").textContent = cur.desc;
+  document.getElementById("desc").innerHTML = cur.desc + ` <a href="guide.html#${cur.id}">지표 설명 보기 →</a>`;
   document.getElementById("t1").textContent = cur.c1[0];
   document.getElementById("t2").textContent = cur.c2[0];
   renderCards(); fill(ch1, cur.c1[1]); fill(ch2, cur.c2[1]);
@@ -198,3 +200,9 @@ os.makedirs(os.path.dirname(OUT), exist_ok=True)
 with open(OUT, "w", encoding="utf-8") as f:
     f.write(HTML.replace("__DATA__", json.dumps(payload, ensure_ascii=False)).replace("__BUILT__", built))
 print(f"대시보드 생성: {OUT} (최신 {payload['date'][-1]})")
+
+# 지표 가이드 페이지
+import guide_page  # noqa: E402
+with open(os.path.join(ROOT, "docs", "guide.html"), "w", encoding="utf-8") as f:
+    f.write(guide_page.render(built))
+print("지표 가이드 생성: docs/guide.html")
