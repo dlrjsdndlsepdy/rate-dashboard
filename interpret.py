@@ -14,6 +14,8 @@ import math
 
 import pandas as pd
 
+import minichart
+
 NOISE_BP = 1.0      # 보합 기준
 SIGMA_K = 2.0       # 이례적 변동 기준 (σ 배수)
 HI_PCT, LO_PCT = 90, 10
@@ -129,9 +131,9 @@ def interpret_day(t: Day) -> dict:
             continue
         dc = _dir(t.d(c))
         if dc > 0:
-            out["signals"].append(("R6", f"{NAMES[c][0]} {_bp(t.d(c))} 확대 → 신용위험 회피, 조달 여건 악화 방향"))
+            out["signals"].append(("R6", f"{NAMES[c][0]} {_bp(t.d(c))} 확대 → 신용위험 회피, 조달 여건 악화 방향", [c]))
         elif dc < 0:
-            out["signals"].append(("R7", f"{NAMES[c][0]} {_bp(t.d(c))} 축소 → 크레딧 선호, 조달 여건 개선 방향"))
+            out["signals"].append(("R7", f"{NAMES[c][0]} {_bp(t.d(c))} 축소 → 크레딧 선호, 조달 여건 개선 방향", [c]))
 
     # ---- R8/R9 교차 (국고 vs 회사채 스프레드), 5일 흐름으로 확인
     if t.has("corp_spread_bp") and t.has("ktb3"):
@@ -140,11 +142,11 @@ def interpret_day(t: Day) -> dict:
         if g < 0 and s > 0:
             conf = "5일 흐름도 같은 방향이라 신호가 강해요." if (g5 < 0 and s5 > 0) else \
                    "단, 하루 단위로는 회사채 금리가 국고채를 늦게 따라가 생기는 착시일 수 있어 5일 흐름으로 확인이 필요해요."
-            out["signals"].append(("R8", f"국고 금리 하락 + 회사채 스프레드 확대 → Risk-off(안전자산 선호) 성향. {conf}"))
+            out["signals"].append(("R8", f"국고 금리 하락 + 회사채 스프레드 확대 → Risk-off(안전자산 선호) 성향. {conf}", ["ktb3", "corp_spread_bp"]))
         elif g > 0 and s < 0:
             conf = "5일 흐름도 같은 방향이에요." if (g5 > 0 and s5 < 0) else \
                    "단, 회사채 금리 반영 지연에 따른 착시일 수 있어요."
-            out["signals"].append(("R9", f"국고 금리 상승 + 회사채 스프레드 축소 → Risk-on(위험 선호) 성향. {conf}"))
+            out["signals"].append(("R9", f"국고 금리 상승 + 회사채 스프레드 축소 → Risk-on(위험 선호) 성향. {conf}", ["ktb3", "corp_spread_bp"]))
 
     # ---- R10 등급 차별화
     for c in ["corp_grade_a_bp", "corp_grade_bbb_bp", "yeojeon_grade_bp"]:
@@ -152,34 +154,34 @@ def interpret_day(t: Day) -> dict:
             continue
         dc = _dir(t.d(c))
         if dc > 0:
-            out["signals"].append(("R10", f"{NAMES[c][0]} {_bp(t.d(c))} → 신용 차별화 심화(하위 등급 조달 부담 증가). 민평 등급 간격은 잘 안 움직여 의미 있는 변화예요."))
+            out["signals"].append(("R10", f"{NAMES[c][0]} {_bp(t.d(c))} → 신용 차별화 심화(하위 등급 조달 부담 증가). 민평 등급 간격은 잘 안 움직여 의미 있는 변화예요.", [c]))
         elif dc < 0:
-            out["signals"].append(("R10", f"{NAMES[c][0]} {_bp(t.d(c))} → 등급 간 격차 완화"))
+            out["signals"].append(("R10", f"{NAMES[c][0]} {_bp(t.d(c))} → 등급 간 격차 완화", [c]))
 
     # ---- R11 단기 자금시장
     if t.has("cp_cd_spread_bp"):
         dcc = t.d("cp_cd_spread_bp")
         ye_stable = t.has("yeojeon_spread_bp") and _dir(t.d("yeojeon_spread_bp")) == 0
         if _dir(dcc) > 0 and ye_stable:
-            out["signals"].append(("R11", f"CP−CD {_bp(dcc)} 확대 + 여전채 스프레드 보합 → 단기 자금시장 스트레스가 먼저 나타나는 모습. 장기물로 번지는지 관찰이 필요해요."))
+            out["signals"].append(("R11", f"CP−CD {_bp(dcc)} 확대 + 여전채 스프레드 보합 → 단기 자금시장 스트레스가 먼저 나타나는 모습. 장기물로 번지는지 관찰이 필요해요.", ["cp_cd_spread_bp", "yeojeon_spread_bp"]))
         elif _dir(dcc) > 0:
-            out["signals"].append(("R11", f"CP−CD {_bp(dcc)} 확대 → 기업·비은행 단기 조달 부담 증가"))
+            out["signals"].append(("R11", f"CP−CD {_bp(dcc)} 확대 → 기업·비은행 단기 조달 부담 증가", ["cp_cd_spread_bp"]))
         if t.pct("cp_cd_spread_bp") >= HI_PCT:
-            out["signals"].append(("R11", f"CP−CD 스프레드 {t.lvl('cp_cd_spread_bp'):.0f}bp, 1년 중 위치 {t.pct('cp_cd_spread_bp'):.0f} → 단기 자금시장 긴장 고점권"))
+            out["signals"].append(("R11", f"CP−CD 스프레드 {t.lvl('cp_cd_spread_bp'):.0f}bp, 1년 중 위치 {t.pct('cp_cd_spread_bp'):.0f} → 단기 자금시장 긴장 고점권", ["cp_cd_spread_bp"]))
 
     # ---- R12 CD vs 국고 3년
     if t.has("cd91") and t.has("ktb3"):
         dcd = t.d("cd91")
         if _dir(dcd) > 0 and dcd > d3:
-            out["signals"].append(("R12", f"CD 91일 {_bp(dcd)}로 국고 3년({_bp(d3)})보다 더 올라 → 단기 금리 상승 압력, 변동금리 대출금리 상승 요인"))
+            out["signals"].append(("R12", f"CD 91일 {_bp(dcd)}로 국고 3년({_bp(d3)})보다 더 올라 → 단기 금리 상승 압력, 변동금리 대출금리 상승 요인", ["cd91", "ktb3"]))
 
     # ---- R13 초장기
     if t.has("ultra_spread_bp"):
         du, lu = t.d("ultra_spread_bp"), t.lvl("ultra_spread_bp")
         if lu < 0:
-            out["signals"].append(("R13", f"30Y−10Y −{abs(lu):.1f}bp로 역전 상태 → 보험·연기금의 초장기물 수요가 강해요."))
+            out["signals"].append(("R13", f"30Y−10Y −{abs(lu):.1f}bp로 역전 상태 → 보험·연기금의 초장기물 수요가 강해요.", ["ultra_spread_bp"]))
         elif _dir(du) < 0:
-            out["signals"].append(("R13", f"30Y−10Y {_bp(du)} 축소 → 초장기물 수요 강세 방향"))
+            out["signals"].append(("R13", f"30Y−10Y {_bp(du)} 축소 → 초장기물 수요 강세 방향", ["ultra_spread_bp"]))
 
     # ---- A. 이례적 변동 / 고점·저점권 / 추세
     for c in NAMES:
@@ -291,7 +293,8 @@ CSS = """
 """
 
 
-def _block(r: dict, full: bool = True) -> str:
+def _block(r: dict, full: bool = True, df: pd.DataFrame = None) -> str:
+    """full=True & df가 있으면(오늘 카드) 신호마다 작은 그래프를 붙임."""
     h = []
     if r.get("regime"):
         h.append(f'<div class="muted">커브 국면 (오늘)</div><div class="regime">{r["regime"]}</div>')
@@ -300,9 +303,18 @@ def _block(r: dict, full: bool = True) -> str:
             h.append(f'<div class="muted" style="margin-top:4px">최근 5영업일 기준 국면: {r["regime5"]}</div>')
     if r["facts"]:
         h.append("<ul>" + "".join(f"<li>{x}</li>" for x in r["facts"]) + "</ul>")
+    if full and df is not None:
+        h.append(minichart.canvas(minichart.chart("KR", df, ["ktb3", "ktb10", "term_spread_bp"], NAMES), height=190))
     if r["signals"]:
-        h.append('<div class="muted" style="margin-top:12px">해석 신호</div><ul>' +
-                 "".join(f'<li><span class="tag">{k}</span>{v}</li>' for k, v in r["signals"]) + "</ul>")
+        items, seen = [], set()
+        for s in r["signals"]:
+            k, v = s[0], s[1]
+            g = ""
+            if full and df is not None and len(s) > 2 and tuple(s[2]) not in seen:
+                seen.add(tuple(s[2]))
+                g = minichart.canvas(minichart.chart("KR", df, s[2], NAMES))
+            items.append(f'<li><span class="tag">{k}</span>{v}{g}</li>')
+        h.append('<div class="muted" style="margin-top:12px">해석 신호</div><ul>' + "".join(items) + "</ul>")
     else:
         h.append('<div class="muted" style="margin-top:12px">해석 신호: 규칙에 걸린 뚜렷한 신호가 없었어요.</div>')
     if r["flags"]:
@@ -332,16 +344,16 @@ def render(df: pd.DataFrame, built: str) -> str:
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>오늘의 해석 · Rates & Spreads Dashboard</title>
-<style>{CSS}</style></head>
+<style>{CSS}{minichart.CSS}</style></head>
 <body><div class="wrap">
   <div><a href="index.html">← 대시보드</a> · <a href="guide.html">📘 지표 가이드</a> · <a href="us-daily.html">🇺🇸 미국 오늘의 해석</a></div>
   <h1>🧭 오늘의 해석</h1>
   <div class="sub">기준일 <b>{today["date"]}</b> · 페이지 생성 {built} · 아래 '해석 기준'의 규칙을 매일 기계적으로 적용한 결과예요.</div>
-  <div class="card">{_block(today)}</div>
+  <div class="card">{_block(today, True, df)}</div>
   <div class="muted">⚠️ 숫자의 움직임이 보내는 '신호'를 읽은 것이에요. 원인(금통위, 해외 지표, 수급 등)은 그날 뉴스와 맞춰 확인하세요.</div>
   <h2>최근 {len(results) - 1}영업일 해석 기록</h2>
   {hist}
   <h2 id="rules">해석 기준</h2>
   <div class="card"><table>{rules}</table></div>
   <p class="muted">개인 학습용 자동 해석이며 투자 권유가 아닙니다.</p>
-</div></body></html>"""
+</div>{minichart.script({"KR": df})}</body></html>"""

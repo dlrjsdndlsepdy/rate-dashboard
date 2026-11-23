@@ -12,6 +12,8 @@ import datetime as dt
 
 import pandas as pd
 
+import minichart
+
 ROOT = os.path.dirname(__file__)
 D = lambda *p: os.path.join(ROOT, *p)  # noqa: E731
 
@@ -293,31 +295,31 @@ def interpret_us(t: Day) -> dict:
         else:
             why = "기대인플레이션 주도 → 물가(유가 등) 우려가 금리를 끌어올린 날" if d10 > 0 else \
                   "기대인플레이션 주도 하락 → 물가 우려 완화"
-        o["signals"].append(("U6", f"10년 {_bp(d10)} = 실질금리 {_bp(dr)} + 기대인플레 {_bp(de)} → {why}"))
+        o["signals"].append(("U6", f"10년 {_bp(d10)} = 실질금리 {_bp(dr)} + 기대인플레 {_bp(de)} → {why}", ["tips10", "bei10"]))
 
     # U7 정책 기대 갭
     if t.has("policy_gap_bp"):
         g, dg = t.lvl("policy_gap_bp"), t.d("policy_gap_bp")
         if _dir(dg) < 0:
-            o["signals"].append(("U7", f"정책 기대 갭 {_bp(dg)} → 시장의 연준 인하 기대 강화"))
+            o["signals"].append(("U7", f"정책 기대 갭 {_bp(dg)} → 시장의 연준 인하 기대 강화", ["policy_gap_bp"]))
         elif _dir(dg) > 0:
-            o["signals"].append(("U7", f"정책 기대 갭 {_bp(dg)} → 인하 기대 후퇴(또는 인상 기대)"))
+            o["signals"].append(("U7", f"정책 기대 갭 {_bp(dg)} → 인하 기대 후퇴(또는 인상 기대)", ["policy_gap_bp"]))
         if g <= -25:
-            o["signals"].append(("U7", f"2년 금리가 기준금리 중간값보다 {abs(g):.0f}bp 낮음 → 앞으로 2년간 대략 {abs(g) / 25:.1f}회(25bp 기준) 인하를 반영하는 수준"))
+            o["signals"].append(("U7", f"2년 금리가 기준금리 중간값보다 {abs(g):.0f}bp 낮음 → 앞으로 2년간 대략 {abs(g) / 25:.1f}회(25bp 기준) 인하를 반영하는 수준", ["policy_gap_bp"]))
         elif g >= 25:
-            o["signals"].append(("U7", f"2년 금리가 기준금리 중간값보다 {g:.0f}bp 높음 → 추가 인상 또는 인하 지연을 반영하는 수준"))
+            o["signals"].append(("U7", f"2년 금리가 기준금리 중간값보다 {g:.0f}bp 높음 → 추가 인상 또는 인하 지연을 반영하는 수준", ["policy_gap_bp"]))
 
     # U8 글로벌 Risk-off / U9 차별화
     if t.has("hy_bp"):
         dh = t.d("hy_bp")
         if _dir(d10) < 0 and _dir(dh, "hy_bp") > 0:
-            o["signals"].append(("U8", f"미 국채 금리↓ + HY 스프레드 {_bp(dh)} → 글로벌 Risk-off(안전자산 선호). 국내 크레딧·외국인 수급에도 부담 요인"))
+            o["signals"].append(("U8", f"미 국채 금리↓ + HY 스프레드 {_bp(dh)} → 글로벌 Risk-off(안전자산 선호). 국내 크레딧·외국인 수급에도 부담 요인", ["ust10", "hy_bp"]))
         elif _dir(d10) > 0 and _dir(dh, "hy_bp") < 0:
-            o["signals"].append(("U8", f"미 국채 금리↑ + HY 스프레드 {_bp(dh)} → 위험 선호(Risk-on), 경기 낙관"))
+            o["signals"].append(("U8", f"미 국채 금리↑ + HY 스프레드 {_bp(dh)} → 위험 선호(Risk-on), 경기 낙관", ["ust10", "hy_bp"]))
         elif _dir(dh, "hy_bp") > 0:
-            o["signals"].append(("U8", f"HY 스프레드 {_bp(dh)} 확대 → 미국 하위 등급 신용 위험 회피"))
+            o["signals"].append(("U8", f"HY 스프레드 {_bp(dh)} 확대 → 미국 하위 등급 신용 위험 회피", ["hy_bp"]))
     if t.has("hy_ig_bp") and _dir(t.d("hy_ig_bp"), "hy_ig_bp") > 0:
-        o["signals"].append(("U9", f"HY − IG {_bp(t.d('hy_ig_bp'))} → 미국 크레딧 시장 내 등급 차별화 심화"))
+        o["signals"].append(("U9", f"HY − IG {_bp(t.d('hy_ig_bp'))} → 미국 크레딧 시장 내 등급 차별화 심화", ["hy_ig_bp"]))
 
     # U10 역전
     for c in ["s2s10_bp", "s3m10_bp"]:
@@ -325,11 +327,11 @@ def interpret_us(t: Day) -> dict:
             continue
         now, prev = t.lvl(c), float(t.df[c].iloc[t.i - 1])
         if now < 0 <= prev:
-            o["signals"].append(("U10", f"{NAMES[c][0]} {now:.1f}bp로 새로 역전 → 경기침체 경계 신호"))
+            o["signals"].append(("U10", f"{NAMES[c][0]} {now:.1f}bp로 새로 역전 → 경기침체 경계 신호", [c]))
         elif now >= 0 > prev:
-            o["signals"].append(("U10", f"{NAMES[c][0]} 역전 해소({now:.1f}bp). 과거엔 역전 해소 국면이 경기 둔화 본격화와 겹친 사례가 많아 주의 깊게 볼 구간"))
+            o["signals"].append(("U10", f"{NAMES[c][0]} 역전 해소({now:.1f}bp). 과거엔 역전 해소 국면이 경기 둔화 본격화와 겹친 사례가 많아 주의 깊게 볼 구간", [c]))
         elif now < 0:
-            o["signals"].append(("U10", f"{NAMES[c][0]} {now:.1f}bp, 역전 지속"))
+            o["signals"].append(("U10", f"{NAMES[c][0]} {now:.1f}bp, 역전 지속", [c]))
 
     _flags(t, o, [c for c in NAMES if not c.endswith("_k") and c in t.df.columns])
     for c in ["ust2", "ust10", "hy_bp"]:
@@ -350,9 +352,9 @@ def interpret_kr(t: Day, k: pd.DataFrame) -> dict:
                           f"({_bp(t.d('ust10_k'))}), 금리차 {t.lvl('kr_us10_bp'):.1f}bp ({_bp(t.d('kr_us10_bp'))})")
         dg = _dir(t.d("kr_us10_bp"))
         if dg < 0:
-            o["signals"].append(("U11", f"한미 10년 금리차 {_bp(t.d('kr_us10_bp'))} → 한국 금리가 상대적으로 더 낮아짐. 외국인 채권 자금 유출 압력·원화 약세 요인"))
+            o["signals"].append(("U11", f"한미 10년 금리차 {_bp(t.d('kr_us10_bp'))} → 한국 금리가 상대적으로 더 낮아짐. 외국인 채권 자금 유출 압력·원화 약세 요인", ["kr_us10_bp"]))
         elif dg > 0:
-            o["signals"].append(("U11", f"한미 10년 금리차 {_bp(t.d('kr_us10_bp'))} → 금리차 축소(한국 상대 금리 상승). 원화에는 지지 요인"))
+            o["signals"].append(("U11", f"한미 10년 금리차 {_bp(t.d('kr_us10_bp'))} → 금리차 축소(한국 상대 금리 상승). 원화에는 지지 요인", ["kr_us10_bp"]))
     # U12 동조화
     if t.has("ust10_k") and t.has("ktb10"):
         su = t.sigma("ust10_k")
@@ -363,7 +365,8 @@ def interpret_kr(t: Day, k: pd.DataFrame) -> dict:
         beta = float((x[m] * y[m]).sum() / (x[m] ** 2).sum()) if m.sum() > 30 else float("nan")
         if not math.isnan(su) and abs(du) > SIGMA_K * su:
             o["signals"].append(("U12", f"미 10년이 전날 {_bp(du)} 크게 움직임(2σ 초과) → 오늘 한국 10년 {_bp(dk)}"
-                                        + (f", 최근 120일 동조화 계수 β≈{beta:.2f}" if not math.isnan(beta) else "")))
+                                        + (f", 최근 120일 동조화 계수 β≈{beta:.2f}" if not math.isnan(beta) else ""),
+                                 ["ktb10", "ust10_k"]))
         elif not math.isnan(beta):
             o["facts"].append(f"한국 10년의 미 10년 동조화 계수(최근 120일, 미국 1bp 움직일 때 한국 평균 반응) β≈{beta:.2f}")
     _flags(t, o, ["kr_us10_bp", "rate_gap_bp", "usdkrw", "hedge_bp"])
@@ -448,7 +451,7 @@ def _lst(title, items, kind="plain"):
     if not items:
         return ""
     if kind == "tag":
-        body = "".join(f'<li><span class="tag">{a}</span>{b}</li>' for a, b in items)
+        body = "".join(f'<li><span class="tag">{s[0]}</span>{s[1]}</li>' for s in items)
     elif kind == "icon":
         body = "".join(f"<li>{a} {b}</li>" for a, b in items)
     else:
@@ -456,7 +459,21 @@ def _lst(title, items, kind="plain"):
     return f'<div class="muted" style="margin-top:12px">{title}</div><ul>{body}</ul>'
 
 
-def _block_us(r, full=True):
+def _signals_with_charts(signals, frame, df):
+    """오늘 카드용: 신호마다 관련 지표 작은 그래프(같은 지표 조합은 한 번만)."""
+    if not signals:
+        return ""
+    items, seen = [], set()
+    for s in signals:
+        g = ""
+        if len(s) > 2 and tuple(s[2]) not in seen:
+            seen.add(tuple(s[2]))
+            g = minichart.canvas(minichart.chart(frame, df, s[2], NAMES))
+        items.append(f'<li><span class="tag">{s[0]}</span>{s[1]}{g}</li>')
+    return '<div class="muted" style="margin-top:12px">해석 신호</div><ul>' + "".join(items) + "</ul>"
+
+
+def _block_us(r, full=True, df=None):
     h = ""
     if r.get("regime"):
         h += f'<div class="muted">커브 국면 (2년·10년)</div><div class="regime">{r["regime"]}</div><div>{r["regime_why"]}</div>'
@@ -464,16 +481,25 @@ def _block_us(r, full=True):
             h += f'<div class="muted" style="margin-top:4px">최근 5영업일 기준: {r["regime5"]}</div>'
     if r["facts"]:
         h += "<ul>" + "".join(f"<li>{x}</li>" for x in r["facts"]) + "</ul>"
-    h += _lst("해석 신호", r["signals"], "tag") or '<div class="muted" style="margin-top:12px">해석 신호: 뚜렷한 신호 없음</div>'
+    if full and df is not None:
+        h += minichart.canvas(minichart.chart("US", df, ["ust2", "ust10", "s2s10_bp"], NAMES), height=190)
+        h += _signals_with_charts(r["signals"], "US", df) or \
+            '<div class="muted" style="margin-top:12px">해석 신호: 뚜렷한 신호 없음</div>'
+    else:
+        h += _lst("해석 신호", r["signals"], "tag") or '<div class="muted" style="margin-top:12px">해석 신호: 뚜렷한 신호 없음</div>'
     h += _lst("주목할 수치", r["flags"], "icon")
     if full:
         h += _lst("5일 추세", r.get("trends", []))
     return h
 
 
-def _block_kr(r):
+def _block_kr(r, df=None):
     h = ("<ul>" + "".join(f"<li>{x}</li>" for x in r["facts"]) + "</ul>") if r["facts"] else ""
-    h += _lst("해석 신호", r["signals"], "tag")
+    if df is not None:
+        h += minichart.canvas(minichart.chart("KUS", df, ["ktb10", "ust10_k", "kr_us10_bp"], NAMES), height=190)
+        h += _signals_with_charts(r["signals"], "KUS", df)
+    else:
+        h += _lst("해석 신호", r["signals"], "tag")
     h += _lst("주목할 수치", r["flags"], "icon")
     if r["sector"]:
         h += '<div class="muted" style="margin-top:12px">시사점</div><ul class="sec">' + \
@@ -485,25 +511,26 @@ def render_daily(us, k, built):
     idx = list(range(max(1, len(us) - HISTORY_N), len(us)))
     res = [interpret_us(Day(us, i)) for i in idx][::-1]
     kr_today = interpret_kr(Day(k, len(k) - 1), k)
+    kc = k.drop(columns=["us_src"], errors="ignore")   # 그래프용(숫자 컬럼만)
     hist = "".join(f'<details><summary><b>{r["date"]}</b> · {r.get("regime") or "-"} · 신호 {len(r["signals"])}개'
                    f'{" · ⚡" if any(a == "⚡" for a, _ in r["flags"]) else ""}</summary>'
                    f'<div style="margin-top:8px">{_block_us(r, False)}</div></details>' for r in res[1:])
     rules = "".join(f"<tr><td>{a}</td><td>{b}</td><td>{c}</td></tr>" for a, b, c in RULES)
     return f"""<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>미국 오늘의 해석</title><style>{DAILY_CSS}</style></head>
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>미국 오늘의 해석</title><style>{DAILY_CSS}{minichart.CSS}</style></head>
 <body><div class="wrap">
   <div><a href="us.html">← 🇺🇸 미국 대시보드</a> · <a href="daily.html">🧭 한국 오늘의 해석</a> · <a href="guide.html#us">📘 지표 가이드</a></div>
   <h1>🧭 미국 오늘의 해석</h1>
   <div class="sub">미국 기준일 <b>{res[0]["date"]}</b> · 한미 비교 기준일 <b>{kr_today["date"]}</b> · 페이지 생성 {built}</div>
   <h2 style="margin-top:8px">🇺🇸 미국 시장</h2>
-  <div class="card">{_block_us(res[0])}</div>
+  <div class="card">{_block_us(res[0], True, us)}</div>
   <h2>🇰🇷🇺🇸 한미 연결</h2>
-  <div class="card">{_block_kr(kr_today) or '<div class="muted">데이터 없음</div>'}</div>
+  <div class="card">{_block_kr(kr_today, kc) or '<div class="muted">데이터 없음</div>'}</div>
   <div class="muted">⚠️ 숫자의 움직임이 보내는 '신호'를 규칙대로 읽은 것이에요. 원인(FOMC, CPI·고용지표, 유가, 재정 이슈 등)은 그날 뉴스와 맞춰 확인하세요.</div>
   <h2>최근 {len(res) - 1}거래일 미국 해석 기록</h2>{hist}
   <h2 id="rules">해석 기준</h2><div class="card"><table>{rules}</table></div>
   <p class="muted">개인 학습용 자동 해석이며 투자 권유가 아닙니다.</p>
-</div></body></html>"""
+</div>{minichart.script({"US": us, "KUS": kc})}</body></html>"""
 
 
 def main():
