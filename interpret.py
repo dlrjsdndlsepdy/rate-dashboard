@@ -7,7 +7,7 @@
   - 고점권/저점권: 1년 중 위치 ≥ 90 / ≤ 10
   - 추세: 최근 5영업일 누적 변화와 오늘 방향 비교 (지속 / 되돌림)
 
-해석 규칙(B)  R1~R13 — 아래 RULES_DOC 참고
+해석 규칙(B)  R1~R17 — 아래 RULES_DOC 참고
 문턱값을 바꾸고 싶으면 이 파일 맨 위 상수만 고치면 됩니다.
 """
 import math
@@ -37,7 +37,11 @@ NAMES = {
     "corp_a_spread_bp": ("A− 크레딧 스프레드", "bp"), "corp_grade_a_bp": ("등급 스프레드(A−−AA−)", "bp"),
     "corp_grade_bbb_bp": ("등급 스프레드(BBB+−AA−)", "bp"),
     "kospi": ("코스피", "idx"), "kosdaq": ("코스닥", "idx"),
+    "msb1_policy_bp": ("통안 1년 − 기준금리", "bp"), "bank_spread_bp": ("은행채 AAA 스프레드", "bp"),
+    "yeojeon_bank_bp": ("여전채 − 은행채 격차", "bp"), "yeojeon_term_bp": ("여전채 기간 프리미엄(5Y−1Y)", "bp"),
 }
+EXPECT_BP = 15         # R16: 통안 1년이 기준금리와 이만큼 벌어지면 금리 변경 기대로 봄
+EXPECT_D5 = 5          # R16: 5일 누적 이만큼 움직이면 기대 변화로 봄
 NOISE_IDX = 0.3        # 주가지수 보합 기준 (%)
 
 
@@ -149,6 +153,13 @@ def interpret_day(t: Day) -> dict:
         out["facts"].append(f"국고 3년 {t.lvl('ktb3'):.3f}% ({_bp(d3)}), 10년 {t.lvl('ktb10'):.3f}% ({_bp(d10)}), "
                             f"장단기 스프레드 {t.lvl('term_spread_bp'):.1f}bp ({_bp(t.d('term_spread_bp'))})")
 
+    # ---- 이벤트 반영일 표시 (금통위·FOMC·CPI·고용)
+    try:
+        import events
+        out["facts"] += events.reaction_note(t.date.date())
+    except Exception:  # noqa: BLE001
+        pass
+
     # ---- R6/R7 크레딧 스프레드
     for c in ["corp_spread_bp", "yeojeon_spread_bp", "corp_a_spread_bp"]:
         if not t.has(c):
@@ -220,6 +231,30 @@ def interpret_day(t: Day) -> dict:
             out["signals"].append(("R15", f"5일간 코스피 {_chg('kospi', k5)}인데 회사채 스프레드는 {_bp(s5)} → 주가는 오르는데 크레딧은 경계하는 괴리. 크레딧 시장이 주식보다 먼저 위험을 반영하는 경우가 많아 주의 신호예요.", cc))
         elif k5 <= -3 and _dir(s5, 2.0) == 0:
             out["signals"].append(("R15", f"5일간 코스피 {_chg('kospi', k5)} 하락에도 회사채 스프레드는 {_bp(s5)}로 안정 → 주식 단독 조정, 아직 신용시장으로 번지지 않았어요.", cc))
+
+    # ---- R16 금리 기대 (통안 1년 − 기준금리)
+    if t.has("msb1_policy_bp"):
+        lv, d5 = t.lvl("msb1_policy_bp"), t.d5("msb1_policy_bp")
+        cc = ["msb1_policy_bp"]
+        moved = not math.isnan(d5) and abs(d5) >= EXPECT_D5
+        if lv <= -EXPECT_BP:
+            msg = f"통안 1년이 기준금리보다 {abs(lv):.0f}bp 낮음 → 1년 안에 기준금리 인하를 반영한 가격이에요."
+        elif lv >= EXPECT_BP:
+            msg = f"통안 1년이 기준금리보다 {lv:.0f}bp 높음 → 1년 안에 기준금리 인상을 반영한 가격이에요."
+        else:
+            msg = f"통안 1년 − 기준금리 {lv:+.0f}bp → 당분간 기준금리 동결 쪽 가격이에요."
+        if moved:
+            msg += f" 5일간 {_bp(d5)} 움직여 " + ("인하 기대가 커지는 중이에요." if d5 < 0 else "인하 기대가 줄거나 인상 기대가 커지는 중이에요.")
+        if moved or abs(lv) >= EXPECT_BP:
+            out["signals"].append(("R16", msg, cc))
+
+    # ---- R17 캐피탈 vs 은행 조달 격차
+    if t.has("yeojeon_bank_bp"):
+        d5 = t.d5("yeojeon_bank_bp")
+        if not math.isnan(d5) and abs(d5) >= 3:
+            out["signals"].append(("R17", f"여전채 AA− − 은행채 AAA 5일 {_bp(d5)} → " +
+                                   ("비은행(캐피탈) 조달 여건이 은행보다 상대적으로 나빠지는 중. 업권 고유 위험(PF 등)을 시장이 따로 반영하는지 확인이 필요해요."
+                                    if d5 > 0 else "캐피탈 조달 여건이 은행 대비 개선되는 중이에요."), ["yeojeon_bank_bp"]))
 
     # ---- A. 이례적 변동 / 고점·저점권 / 추세
     for c in NAMES:
@@ -307,6 +342,8 @@ RULES_DOC = [
     ("R13", "초장기 수요", "30Y−10Y 축소 또는 역전 → 보험·연기금 초장기물 수요 강세"),
     ("R14", "주식·크레딧 동조", f"코스피(±{NOISE_IDX}% 이상)와 회사채 스프레드가 반대 방향 → 하락+확대면 위험 회피 확인, 상승+축소면 위험 선호 (머튼 모형: 주가는 신용위험의 선행지표)"),
     ("R15", "주식·크레딧 괴리", "5일간 코스피 +1% 이상인데 스프레드 +2bp 이상 → 크레딧 선행 경고 / 코스피 −3% 이하인데 스프레드 ±2bp 미만 → 주식 단독 조정"),
+    ("R16", "금리 기대", f"통안 1년 − 기준금리가 −{EXPECT_BP}bp 이하면 인하, +{EXPECT_BP}bp 이상이면 인상을 반영한 가격. 5일 ±{EXPECT_D5}bp 이상이면 기대 변화 (기대가설: 1년 금리 ≈ 향후 1년 기대 정책금리 평균 + 작은 프리미엄)"),
+    ("R17", "캐피탈·은행 조달 격차", "여전채 AA− − 은행채 AAA 5일 ±3bp 이상 → 비은행 조달 여건의 상대적 악화/개선 (예금 없는 업권의 신용 프리미엄)"),
 ]
 
 CSS = """
@@ -371,6 +408,23 @@ def _block(r: dict, full: bool = True, df: pd.DataFrame = None) -> str:
     return "".join(h)
 
 
+def _extra(kind, today, df):
+    """추가 섹션 — 하나가 실패해도 페이지 전체는 만들어지게."""
+    try:
+        if kind == "brief":
+            import brief
+            return brief.section(today, institutions.evaluate(df), df.index.max().date())
+        if kind == "events":
+            import events
+            return events.section()
+        if kind == "analog":
+            import analog
+            return analog.section(df)
+    except Exception as e:  # noqa: BLE001
+        print(f"[경고] {kind} 섹션 생략: {e}")
+    return ""
+
+
 def render(df: pd.DataFrame, built: str) -> str:
     df = df.sort_index()
     idxs = list(range(max(1, len(df) - HISTORY_N), len(df)))
@@ -388,11 +442,14 @@ def render(df: pd.DataFrame, built: str) -> str:
 <title>오늘의 해석 · Rates & Spreads Dashboard</title>
 <style>{CSS}{minichart.CSS}{institutions.CSS}</style></head>
 <body><div class="wrap">
-  <div><a href="index.html">← 대시보드</a> · <a href="guide.html">📘 지표 가이드</a> · <a href="us-daily.html">🇺🇸 미국 오늘의 해석</a> · <a href="logic.html">🧩 해석 로직</a></div>
+  <div><a href="index.html">← 대시보드</a> · <a href="guide.html">📘 지표 가이드</a> · <a href="us-daily.html">🇺🇸 미국 오늘의 해석</a> · <a href="logic.html">🧩 해석 로직</a> · <a href="weekly.html">🗓️ 주간 요약</a> · <a href="calc.html">🧮 캐리 계산기</a></div>
   <h1>🧭 오늘의 해석</h1>
   <div class="sub">기준일 <b>{today["date"]}</b> · 페이지 생성 {built} · 아래 '해석 기준'의 규칙을 매일 기계적으로 적용한 결과예요.</div>
+  {_extra("brief", today, df)}
   <div class="card">{_block(today, True, df)}</div>
   {institutions.section(df)}
+  {_extra("events", today, df)}
+  {_extra("analog", today, df)}
   <div class="muted">⚠️ 숫자의 움직임이 보내는 '신호'를 읽은 것이에요. 원인(금통위, 해외 지표, 수급 등)은 그날 뉴스와 맞춰 확인하세요.</div>
   <h2>최근 {len(results) - 1}영업일 해석 기록</h2>
   {hist}

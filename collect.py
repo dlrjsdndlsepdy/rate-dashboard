@@ -22,7 +22,8 @@ import requests
 API_KEY = os.environ.get("ECOS_API_KEY", "").strip()
 BASE = "https://ecos.bok.or.kr/api"
 STAT_CODE = "817Y002"          # 시장금리(일별)
-START_DATE = "20240101"        # 이 날짜부터 매번 전체를 다시 받아옴(누락돼도 다음 실행 때 자동 복구)
+START_DATE = "20200101"        # 이 날짜부터 매번 전체를 다시 받아옴(과거 유사 국면 분석용으로 2020년부터)
+KOFIA_START = "2024-01-01"     # KOFIA 민평은 이 날짜부터만 수집(서버 부담·실행 시간)
 
 # 컬럼명: (ECOS 항목코드, 표시 이름)
 ITEMS = {
@@ -32,6 +33,14 @@ ITEMS = {
     "ktb30":   ("010230000", "국고채 30년"),
     "cd91":    ("010502000", "CD 91일"),
     "cp91":    ("010503000", "CP 91일"),
+    # 커브 확장 (없어도 진행)
+    "ktb1":    ("010190000", "국고채 1년"),
+    "ktb2":    ("010195000", "국고채 2년"),
+    "ktb5":    ("010200001", "국고채 5년"),
+    "ktb20":   ("010220000", "국고채 20년"),
+    "msb1":    ("010400001", "통안증권 1년"),
+    "msb2":    ("010400002", "통안증권 2년"),
+    "bok_rate": ("0101000", "한국은행 기준금리", "722Y001"),
     # 주식(위험자산) — 통계표 802Y001 주식시장(일)
     "kospi":   ("0001000", "코스피", "802Y001"),
     "kosdaq":  ("0089000", "코스닥", "802Y001"),
@@ -95,16 +104,24 @@ def fetch(item_code: str, start: str, end: str, stat: str = STAT_CODE) -> pd.Ser
 # ---------------------------------------------------------------------------
 KOFIA_URL = "https://www.kofiabond.or.kr/proframeWeb/XMLSERVICES/"
 KOFIA_PATH = os.path.join(os.path.dirname(__file__), "data", "kofia.csv")
-KOFIA_ROWS = {                 # sigaBrnCd → 컬럼명
-    "6010123": "yeojeon_aa",   # 금융채 II(금융기관채) 무보증 AA-  = 여전채(카드·캐피탈채) AA-
-    "6010131": "yeojeon_a_plus",  # 금융채 II(금융기관채) 무보증 A+ = 중소형 캐피탈급
-    "1010000": "ktb3_mp",      # 국고채권 (같은 민평 기준으로 스프레드 계산용)
-    "7010123": "corp_aa_mp",   # 회사채 I(공모) 무보증 AA-  (민평)
-    "7010133": "corp_a_minus", # 회사채 I(공모) 무보증 A-
-    "7010211": "corp_bbb_plus",# 회사채 I(공모) 무보증 BBB+
-}
-KOFIA_TENOR_TAG = "val8"       # 잔존만기 3년 (val1=3월 … val8=3년 … val16=50년)
-KOFIA_SCHEMA = 3             # KOFIA_ROWS를 바꾸면 1 올리기 → 과거 날짜 재수집
+# 잔존만기 태그: val1=3월 val2=6월 val3=9월 val4=1년 val5=1.5년 val6=2년 val7=2.5년
+#                val8=3년 val9=4년 val10=5년 val11=7년 val12=10년 … val16=50년
+KOFIA_ROWS = [                 # (sigaBrnCd, 만기 태그, 컬럼명)
+    ("6010123", "val8",  "yeojeon_aa"),      # 금융채 II(금융기관채) 무보증 AA- = 여전채(카드·캐피탈채) AA-
+    ("6010123", "val4",  "yeojeon_aa_1y"),
+    ("6010123", "val10", "yeojeon_aa_5y"),
+    ("6010131", "val8",  "yeojeon_a_plus"),  # 금융채 II 무보증 A+ = 중소형 캐피탈급
+    ("1010000", "val8",  "ktb3_mp"),         # 국고채권 (같은 민평 기준으로 스프레드 계산용)
+    ("1010000", "val4",  "ktb1_mp"),
+    ("1010000", "val10", "ktb5_mp"),
+    ("5030110", "val8",  "bank_aaa"),        # 금융채 I(은행채) 무보증 AAA (시중은행채)
+    ("5030110", "val4",  "bank_aaa_1y"),
+    ("7010123", "val8",  "corp_aa_mp"),      # 회사채 I(공모) 무보증 AA- (민평)
+    ("7010133", "val8",  "corp_a_minus"),    # 회사채 I(공모) 무보증 A-
+    ("7010211", "val8",  "corp_bbb_plus"),   # 회사채 I(공모) 무보증 BBB+
+]
+KOFIA_COLS = [c for _, _, c in KOFIA_ROWS]
+KOFIA_SCHEMA = 4             # KOFIA_ROWS를 바꾸면 1 올리기 → 과거 날짜 재수집
 KOFIA_MAX_CALLS = 900         # 1회 실행당 최대 조회 일수(첫 실행 백필 포함)
 
 
@@ -128,10 +145,11 @@ def _kofia_day(session: requests.Session, ymd: str) -> dict:
     out = {}
     for row in root.iter("BISBndSrtPrcDayDTO"):
         code = (row.findtext("sigaBrnCd") or "").strip()
-        if code in KOFIA_ROWS:
-            v = (row.findtext(KOFIA_TENOR_TAG) or "").strip()
-            if v:
-                out[KOFIA_ROWS[code]] = float(v)
+        for c, tag, col in KOFIA_ROWS:
+            if c == code:
+                v = (row.findtext(tag) or "").strip()
+                if v:
+                    out[col] = float(v)
     return out
 
 
@@ -140,15 +158,15 @@ def update_kofia(dates: pd.DatetimeIndex) -> pd.DataFrame:
     if os.path.exists(KOFIA_PATH):
         have = pd.read_csv(KOFIA_PATH, parse_dates=["date"]).set_index("date")
     else:
-        have = pd.DataFrame(columns=list(KOFIA_ROWS.values()))
+        have = pd.DataFrame(columns=KOFIA_COLS)
         have.index.name = "date"
 
     # 수집 항목이 바뀌면(KOFIA_SCHEMA 증가) 기존 날짜도 한 번 다시 채움
-    for c in list(KOFIA_ROWS.values()) + ["schema"]:
+    for c in KOFIA_COLS + ["schema"]:
         if c not in have.columns:
             have[c] = float("nan")
     complete = have.index[have["schema"] == KOFIA_SCHEMA]
-    todo = [d for d in dates if d not in complete][-KOFIA_MAX_CALLS:]
+    todo = [d for d in dates if d not in complete and d >= pd.Timestamp(KOFIA_START)][-KOFIA_MAX_CALLS:]
     print(f"KOFIA 수집: 신규 {len(todo)}일")
 
     s = requests.Session()
@@ -185,6 +203,27 @@ def update_kofia(dates: pd.DatetimeIndex) -> pd.DataFrame:
     return have
 
 
+KOFIA_SPREADS = {   # 컬럼 = (A − B) × 100 bp
+    "yeojeon_spread_bp":    ("yeojeon_aa", "ktb3_mp"),
+    "yeojeon_grade_bp":     ("yeojeon_a_plus", "yeojeon_aa"),
+    "corp_a_spread_bp":     ("corp_a_minus", "ktb3_mp"),
+    "corp_grade_a_bp":      ("corp_a_minus", "corp_aa_mp"),
+    "corp_grade_bbb_bp":    ("corp_bbb_plus", "corp_aa_mp"),
+    # 여전채 만기별 · 은행채
+    "yeojeon_spread_1y_bp": ("yeojeon_aa_1y", "ktb1_mp"),
+    "yeojeon_spread_5y_bp": ("yeojeon_aa_5y", "ktb5_mp"),
+    "yeojeon_term_bp":      ("yeojeon_aa_5y", "yeojeon_aa_1y"),
+    "bank_spread_bp":       ("bank_aaa", "ktb3_mp"),
+    "yeojeon_bank_bp":      ("yeojeon_aa", "bank_aaa"),
+}
+
+
+def add_kofia_spreads(df: pd.DataFrame) -> None:
+    for col, (a, b) in KOFIA_SPREADS.items():
+        if {a, b} <= set(df.columns):
+            df[col] = ((df[a] - df[b]) * 100).round(1)
+
+
 def main() -> None:
     if not API_KEY:
         sys.exit("ECOS_API_KEY 환경변수가 비어 있습니다.")
@@ -209,39 +248,35 @@ def main() -> None:
                 raise   # 핵심 지표가 아예 없으면 진행 불가
             else:
                 print(f"[경고] {col} 수집 실패, 이번엔 제외: {e}")
+    bok = series.pop("bok_rate", None)
     df = pd.DataFrame(series).dropna(how="all")
+    df = df[df["ktb3"].notna()]          # 금리 영업일 기준
     df.index.name = "date"
+    if bok is not None and len(bok):
+        df["bok_rate"] = bok.sort_index().reindex(df.index, method="ffill")
 
     # 스프레드(bp)
     df["term_spread_bp"] = ((df["ktb10"] - df["ktb3"]) * 100).round(1)
     df["corp_spread_bp"] = ((df["corp_aa"] - df["ktb3"]) * 100).round(1)
     df["ultra_spread_bp"] = ((df["ktb30"] - df["ktb10"]) * 100).round(1)   # 10-30년 (보험 ALM)
     df["cp_cd_spread_bp"] = ((df["cp91"] - df["cd91"]) * 100).round(1)     # 단기 신용경색 지표
+    if {"msb1", "bok_rate"} <= set(df.columns):                                # 금리 기대
+        df["msb1_policy_bp"] = ((df["msb1"] - df["bok_rate"]) * 100).round(1)
+    if {"ktb2", "bok_rate"} <= set(df.columns):
+        df["ktb2_policy_bp"] = ((df["ktb2"] - df["bok_rate"]) * 100).round(1)
 
-    # KOFIA 여전채 AA- (실패해도 ECOS 데이터는 그대로 저장)
+    # KOFIA 민평 (실패해도 ECOS 데이터는 그대로 저장)
     try:
         kofia = update_kofia(df.index)
-        df = df.join(kofia.drop(columns=["schema"], errors="ignore"), how="left")
-        df["yeojeon_spread_bp"] = ((df["yeojeon_aa"] - df["ktb3_mp"]) * 100).round(1)
-        df["yeojeon_grade_bp"] = ((df["yeojeon_a_plus"] - df["yeojeon_aa"]) * 100).round(1)
-        # 기업금융(크레딧): 같은 민평 기준
-        df["corp_a_spread_bp"] = ((df["corp_a_minus"] - df["ktb3_mp"]) * 100).round(1)
-        df["corp_grade_a_bp"] = ((df["corp_a_minus"] - df["corp_aa_mp"]) * 100).round(1)
-        df["corp_grade_bbb_bp"] = ((df["corp_bbb_plus"] - df["corp_aa_mp"]) * 100).round(1)
     except Exception as e:  # noqa: BLE001
         print(f"[경고] KOFIA 수집 실패: {e}")
+        kofia = None
         if os.path.exists(KOFIA_PATH):   # 지난번까지 쌓인 값으로라도 지표 유지
             print("  → 저장된 kofia.csv 값으로 진행")
             kofia = pd.read_csv(KOFIA_PATH, parse_dates=["date"]).set_index("date")
-            df = df.join(kofia.drop(columns=["schema"], errors="ignore"), how="left")
-            if {"yeojeon_aa", "ktb3_mp"} <= set(df.columns):
-                df["yeojeon_spread_bp"] = ((df["yeojeon_aa"] - df["ktb3_mp"]) * 100).round(1)
-            if {"yeojeon_a_plus", "yeojeon_aa"} <= set(df.columns):
-                df["yeojeon_grade_bp"] = ((df["yeojeon_a_plus"] - df["yeojeon_aa"]) * 100).round(1)
-            if {"corp_a_minus", "ktb3_mp", "corp_aa_mp", "corp_bbb_plus"} <= set(df.columns):
-                df["corp_a_spread_bp"] = ((df["corp_a_minus"] - df["ktb3_mp"]) * 100).round(1)
-                df["corp_grade_a_bp"] = ((df["corp_a_minus"] - df["corp_aa_mp"]) * 100).round(1)
-                df["corp_grade_bbb_bp"] = ((df["corp_bbb_plus"] - df["corp_aa_mp"]) * 100).round(1)
+    if kofia is not None:
+        df = df.join(kofia.drop(columns=["schema"], errors="ignore"), how="left")
+        add_kofia_spreads(df)
 
     os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)
     df.to_csv(OUT_PATH, float_format="%.3f")

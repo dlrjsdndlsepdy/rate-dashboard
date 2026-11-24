@@ -41,9 +41,12 @@ SPEC = {
              "민평 등급 간격은 평가사가 천천히 조정해 잘 안 움직여서 문턱값을 작게 잡았어요."),
             ("C5", "시장 기준 대출 마진 여력 (A− 회사채 − 여전채 AA−, 1년 위치)", "pos", "≥ 80", "≤ 20", "근사",
              "대출 가격 = 조달비용 + 차주 신용스프레드라는 가격결정 논리로 만든 시장 기준 근사예요. 실제 대출금리가 아니에요."),
+            ("C6", "은행 대비 조달 불리함 (여전채 AA− − 은행채 AAA, 1년 위치)", "pos", "≤ 20", "≥ 80", "사실·해석",
+             "캐피탈과 은행은 기업대출에서 경쟁해요. 은행보다 비싸게 조달할수록 가격 경쟁력이 떨어져요 (예금 없는 비은행의 구조적 열위)."),
         ],
         "assume": ["조달금리는 여전채 AA− 3년으로 대표 (회사별 등급·만기 구성·CP 비중은 다름)",
-                   "마진 여력은 A− 회사채 금리로 대출금리를 근사한 값 (실제 대출은 차주·담보·만기별 협상)"],
+                   "마진 여력은 A− 회사채 금리로 대출금리를 근사한 값 (실제 대출은 차주·담보·만기별 협상)",
+                   "은행 대비 조달 격차는 여전채 AA−와 시중은행채 AAA 3년 민평의 차이 (은행은 예금 조달이 커서 실제 원가 격차는 더 클 수 있음)"],
     },
     "insurance": {
         "title": "🛡️ 보험", "q": "장기로 높은 금리에 운용할 수 있는가",
@@ -57,6 +60,8 @@ SPEC = {
              "30년물이 10년물보다 상대적으로 낮으면(스프레드 축소·역전) 초장기물을 비싸게 사야 해요."),
             ("I4", "해외채 헤지 매력 (환헤지 비용 근사, 1년 위치)", "pos", "≤ 20", "≥ 80", "근사",
              "커버드 금리평가(CIP): 헤지 비용 ≈ 미 3개월 − 한국 CD 91일. 외환스왑 베이시스·헤지 만기는 무시했어요."),
+            ("I5", "중장기 구간 금리 (국고 20년, 1년 위치)", "pos", "≥ 70", "≤ 30", "사실·해석",
+             "부채 듀레이션 매칭에는 30년물뿐 아니라 20년물도 많이 써요. 30년물과 같은 논리로 금리가 높을수록 신규 매입에 유리해요."),
         ],
         "assume": [f"자산 듀레이션 {INS_DURATION}년 가정 (회사마다 다름)",
                    "평가손익은 자산 측만 계산 — 부채 재평가에 따른 상쇄 효과는 반영하지 않음",
@@ -76,9 +81,12 @@ SPEC = {
              "중견기업급 신용 프리미엄이 높을수록 기업여신의 신용위험이 커지는 환경이에요."),
             ("B5", "차주 신용 선행 (코스피, 5일 변화)", "d5", "—", "≤ −5%", "해석",
              "머튼 모형: 주가 하락은 기업 신용 악화의 선행 신호예요."),
+            ("B6", "시장 조달 비용 (은행채 AAA 3년 − 국고, 1년 위치)", "pos", "≤ 20", "≥ 80", "사실·해석",
+             "은행채는 예금 외 은행의 주요 조달 수단이고, 은행채 금리는 고정금리·혼합형 대출금리의 기준으로도 쓰여요. 국고 대비 가산금리가 낮을수록 조달이 유리해요."),
         ],
         "assume": ["장단기 금리차는 NIM이 아닌 '환경 참고 지표' (실제 NIM은 예금·대출금리 차이, 코픽스, 경쟁에 좌우)",
-                   "CD는 CD 연동 기업대출·변동금리 대출 기준 (가계 주담대는 코픽스·은행채 연동이 많음)"],
+                   "CD는 CD 연동 기업대출·변동금리 대출 기준 (가계 주담대는 코픽스·은행채 연동이 많음)",
+                   "은행 조달 비용은 시중은행채 AAA 민평으로 대표 (은행별·만기별 차이와 예금 조달은 반영 안 됨)"],
     },
 }
 
@@ -192,7 +200,14 @@ def _capital(df):
         out.append(("C5", _sc_pos(p, good_hi=True),
                     f"`근사` 시장 기준 마진 여력 {mg.iloc[-1]:.0f}bp, 1년 위치 {p:.0f} → `해석` " +
                     ("대출 마진 확보에 유리한 환경" if p >= 80 else "대출 마진 압박 방향" if p <= 20 else "마진 환경 평균 수준")))
-    series = {"여전채 AA−": (ye, 100, False), "여전채 스프레드": (sp, 1, False), "CP−CD": (cpcd, 1, False), "A+−AA−": (gr, 1, False)}
+    yb = _s(df, "yeojeon_bank_bp")
+    if len(yb) > 20:
+        p = _pos(yb)
+        out.append(("C6", _sc_pos(p, good_hi=False),
+                    f"`사실` 여전채 AA− − 은행채 AAA {yb.iloc[-1]:.1f}bp, 1년 위치 {p:.0f} → `해석` " +
+                    ("은행 대비 조달 열위 확대: 기업대출 가격 경쟁 불리" if p >= 80 else "은행 대비 조달 격차 축소: 가격 경쟁 여지" if p <= 20 else "은행 대비 조달 격차 평균 수준")))
+    series = {"여전채 AA−": (ye, 100, False), "여전채 스프레드": (sp, 1, False), "CP−CD": (cpcd, 1, False), "A+−AA−": (gr, 1, False),
+              "여전채−은행채": (yb, 1, False)}
     return out, series
 
 
@@ -219,7 +234,13 @@ def _insurance(df):
         out.append(("I4", _sc_pos(p, good_hi=False),
                     f"`근사` 환헤지 비용 약 {hg.iloc[-1]:.0f}bp, 1년 위치 {p:.0f} → `해석` " +
                     ("헤지 후 해외채 매력 낮은 구간" if p >= 80 else "헤지 후 해외채 매력 높은 구간" if p <= 20 else "헤지 비용 평균 수준")))
-    series = {"국고 30년": (k30, 100, False), "국고 10년": (k10, 100, False), "30Y−10Y": (us_, 1, False)}
+    k20 = _s(df, "ktb20")
+    if len(k20) > 20:
+        p = _pos(k20)
+        out.append(("I5", _sc_pos(p, good_hi=True, hi=70, lo=30),
+                    f"`사실` 국고 20년 {k20.iloc[-1]:.3f}%, 1년 위치 {p:.0f} → `해석` " +
+                    ("20년 구간 신규 매입에 유리" if p >= 70 else "20년 구간 금리 낮은 편" if p <= 30 else "20년 구간 금리 평균 수준")))
+    series = {"국고 30년": (k30, 100, False), "국고 10년": (k10, 100, False), "30Y−10Y": (us_, 1, False), "국고 20년": (k20, 100, False)}
     return out, series
 
 
@@ -251,7 +272,14 @@ def _bank(df):
         out.append(("B5", -1 if d <= -5 else 0,
                     f"`사실` 코스피 5일 {_bp(d, '%', 2)} ({_date(ks)} 기준) → `해석` " +
                     ("주가 급락: 차주 신용 악화의 선행 신호 (머튼 모형)" if d <= -5 else "차주 신용 선행 신호 없음")))
-    series = {"CD 91일": (cd, 100, False), "10Y−3Y": (ts, 1, False), "A− 스프레드": (asp, 1, False), "코스피": (ks, 1, True)}
+    bs = _s(df, "bank_spread_bp")
+    if len(bs) > 20:
+        p = _pos(bs)
+        out.append(("B6", _sc_pos(p, good_hi=False),
+                    f"`사실` 은행채 AAA 3년 {_s(df, 'bank_aaa').iloc[-1]:.3f}%, 국고 대비 {bs.iloc[-1]:.1f}bp (1년 위치 {p:.0f}) → `해석` " +
+                    ("은행 시장 조달 비용 높은 구간" if p >= 80 else "은행 시장 조달 여건 양호" if p <= 20 else "은행 조달 비용 평균 수준")))
+    series = {"CD 91일": (cd, 100, False), "10Y−3Y": (ts, 1, False), "A− 스프레드": (asp, 1, False), "코스피": (ks, 1, True),
+              "은행채 스프레드": (bs, 1, False)}
     return out, series
 
 
@@ -297,11 +325,25 @@ CSS = """
 """
 
 
+FNS = [("capital", _capital), ("insurance", _insurance), ("bank", _bank)]
+
+
+def evaluate(df: pd.DataFrame) -> dict:
+    """기관별 {key: (아이콘, 단어, 합계, 항목들)} — 면접 카드·알림·주간 요약에서 재사용."""
+    df = df.sort_index()
+    out = {}
+    for key, fn in FNS:
+        items, _ = fn(df)
+        total = sum(sc for _, sc, _ in items)
+        out[key] = (*_light(total), total, items)
+    return out
+
+
 def section(df: pd.DataFrame) -> str:
     """'오늘의 해석' 페이지에 넣을 기관별 브리핑 HTML."""
     df = df.sort_index()
     html = []
-    for key, fn in [("capital", _capital), ("insurance", _insurance), ("bank", _bank)]:
+    for key, fn in FNS:
         spec = SPEC[key]
         items, series = fn(df)
         total = sum(sc for _, sc, _ in items)

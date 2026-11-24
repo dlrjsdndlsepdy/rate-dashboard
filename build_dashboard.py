@@ -66,7 +66,7 @@ HTML = r"""<!DOCTYPE html>
 <body>
 <div class="wrap">
   <h1>금리 · 스프레드 대시보드</h1>
-  <div class="sub">최신 데이터 <b id="asof"></b> · 페이지 생성 __BUILT__ · <a href="daily.html">🧭 오늘의 해석</a> · <a href="guide.html">📘 지표 가이드</a> · <a href="us.html">🇺🇸 미국</a> · <a href="markets.html">📈 증시</a></div>
+  <div class="sub">최신 데이터 <b id="asof"></b> · 페이지 생성 __BUILT__ · <a href="daily.html">🧭 오늘의 해석</a> · <a href="guide.html">📘 지표 가이드</a> · <a href="us.html">🇺🇸 미국</a> · <a href="markets.html">📈 증시</a> · <a href="weekly.html">🗓️ 주간</a> · <a href="calc.html">🧮 계산기</a></div>
 
   <div class="tabs" id="tabs"></div>
   <p class="desc" id="desc"></p>
@@ -75,6 +75,8 @@ HTML = r"""<!DOCTYPE html>
   <div class="ranges" id="ranges">
     <button data-d="22">1개월</button><button data-d="66" class="on">3개월</button>
     <button data-d="130">6개월</button><button data-d="260">1년</button><button data-d="0">전체</button>
+    <label style="margin-left:auto;font-size:13px;color:var(--muted);display:flex;align-items:center;gap:4px">
+      <input type="checkbox" id="evt" checked> 금통위·FOMC 표시</label>
   </div>
 
   <div class="panel"><h2 id="t1"></h2><div class="chartbox"><canvas id="c1"></canvas></div></div>
@@ -82,7 +84,8 @@ HTML = r"""<!DOCTYPE html>
 
   <div class="foot">
     <b>출처</b> · 한국은행 ECOS 시장금리(일별, 금융투자협회 최종호가수익률 기준): 국고채 3·10·30년, 회사채 AA− 3년, CD·CP 91일, 주식시장(코스피·코스닥).<br>
-    금융투자협회 채권시가평가기준수익률(평가사 평균, 민평): 여전채 = '금융채 II(금융기관채) 무보증' AA−·A+ 3년, 기업금융 탭 = '회사채 I(공모) 무보증' AA−·A−·BBB+ 3년. 민평 지표의 스프레드는 같은 민평 기준 국고 3년 대비.<br>
+    금융투자협회 채권시가평가기준수익률(평가사 평균, 민평): 여전채 = '금융채 II(금융기관채) 무보증' AA−(1·3·5년)·A+ 3년, 은행채 = '금융채 I(은행채) 무보증' AAA 1·3년, 기업금융 탭 = '회사채 I(공모) 무보증' AA−·A−·BBB+ 3년. 민평 지표의 스프레드는 같은 민평 기준 국고채 대비.<br>
+    <b>차트 세로선</b> · 빨강/파랑 = 기준금리 인상/인하일, 노랑 = FOMC 결정이 한국 시장에 반영된 날.<br>
     <b>정의</b> · 장단기 = 국고 10Y−3Y · 초장기 = 국고 30Y−10Y · 회사채 스프레드 = 회사채 AA−−국고 3Y ·
     등급 스프레드 = 여전채 A+ − AA− · CP−CD = CP 91일 − CD 91일.<br>
     '1년 중 위치'는 최근 약 260영업일 중 오늘 값보다 낮았던 날의 비율(0=1년 최저, 100=1년 최고)입니다.
@@ -91,8 +94,26 @@ HTML = r"""<!DOCTYPE html>
 
 <script>
 const D = __DATA__;
+const EV = __EVENTS__;
+let showEv = true;
+// 차트 세로선 (금통위 금리 변경 · FOMC)
+Chart.register({ id:"evlines", afterDatasetsDraw(chart){
+  if (!showEv) return;
+  const labels = chart.data.labels; if (!labels.length) return;
+  const {ctx, chartArea:a, scales:{x}} = chart;
+  ctx.save(); ctx.setLineDash([3,3]); ctx.lineWidth = 1; ctx.font = "10px sans-serif";
+  for (const e of EV){
+    if (e.d < labels[0] || e.d > labels.at(-1)) continue;
+    const i = labels.findIndex(l => l >= e.d); if (i < 0) continue;
+    const px = x.getPixelForValue(i);
+    ctx.strokeStyle = e.c; ctx.globalAlpha = 0.7;
+    ctx.beginPath(); ctx.moveTo(px, a.top); ctx.lineTo(px, a.bottom); ctx.stroke();
+    if (labels.length <= 140){ ctx.fillStyle = e.c; ctx.globalAlpha = 0.9; ctx.fillText(e.t, px + 3, a.top + 10); }
+  }
+  ctx.restore();
+}});
 
-const COLORS = ["#4dabf7","#ffa94d","#69db7c","#da77f2","#ff8787","#ffd43b"];
+const COLORS = ["#4dabf7","#ffa94d","#69db7c","#da77f2","#ff8787","#ffd43b","#63e6be","#adb5bd"];
 const TABS = [
   { id:"common", name:"공통",
     desc:"국고채 커브와 일반 회사채 크레딧. 모든 업권의 출발점이에요.",
@@ -100,13 +121,22 @@ const TABS = [
            ["term_spread_bp","장단기 스프레드 (10Y−3Y)","bp"],["corp_spread_bp","회사채 크레딧 스프레드","bp"]],
     c1:["국고채 · 회사채 금리 (%)", [["ktb3","국고 3년"],["ktb10","국고 10년"],["corp_aa","회사채 AA− 3년"]]],
     c2:["스프레드 (bp)", [["term_spread_bp","장단기 (10Y−3Y)"],["corp_spread_bp","회사채 AA− − 국고 3년"]]] },
+  { id:"curve", name:"금리 기대·커브",
+    desc:"국고채 1~30년 전체 커브와 통안증권. 통안 1·2년이 기준금리보다 낮으면 시장이 인하를, 높으면 인상을 가격에 반영하고 있다는 뜻이에요.",
+    cards:[["bok_rate","한국은행 기준금리","%"],["msb1","통안증권 1년","%"],["msb2","통안증권 2년","%"],
+           ["msb1_policy_bp","통안 1년 − 기준금리","bp"],["ktb1","국고채 1년","%"],["ktb2","국고채 2년","%"],
+           ["ktb5","국고채 5년","%"],["ktb20","국고채 20년","%"]],
+    c1:["국고채 커브 (%)", [["ktb1","1년"],["ktb2","2년"],["ktb3","3년"],["ktb5","5년"],["ktb10","10년"],["ktb20","20년"],["ktb30","30년"]]],
+    c2:["기준금리 vs 통안증권 (%)", [["bok_rate","기준금리"],["msb1","통안 1년"],["msb2","통안 2년"]]] },
   { id:"capital", name:"캐피탈",
-    desc:"여전채 조달금리와 등급 간 격차(대형 AA급 vs 중소형 A급), 단기 조달시장(CP) 온도.",
-    cards:[["yeojeon_aa","여전채 AA− 3년","%"],["yeojeon_a_plus","여전채 A+ 3년","%"],
+    desc:"여전채 만기별(1·3·5년) 조달금리, 등급 간 격차(대형 AA급 vs 중소형 A급), 은행 대비 조달 격차, 단기 조달시장(CP) 온도.",
+    cards:[["yeojeon_aa_1y","여전채 AA− 1년","%"],["yeojeon_aa","여전채 AA− 3년","%"],["yeojeon_aa_5y","여전채 AA− 5년","%"],
+           ["yeojeon_a_plus","여전채 A+ 3년","%"],
            ["yeojeon_spread_bp","여전채 AA− 크레딧 스프레드","bp"],["yeojeon_grade_bp","등급 스프레드 (A+ − AA−)","bp"],
+           ["yeojeon_term_bp","여전채 기간 프리미엄 (5Y − 1Y)","bp"],["yeojeon_bank_bp","여전채 − 은행채 격차","bp"],
            ["cp91","CP 91일","%"],["cp_cd_spread_bp","CP − CD 스프레드","bp"]],
-    c1:["여전채 · 단기 조달금리 (%)", [["yeojeon_aa","여전채 AA− 3년"],["yeojeon_a_plus","여전채 A+ 3년"],["cp91","CP 91일"],["cd91","CD 91일"]]],
-    c2:["캐피탈 스프레드 (bp)", [["yeojeon_spread_bp","여전채 AA− − 국고 3년"],["yeojeon_grade_bp","A+ − AA−"],["cp_cd_spread_bp","CP − CD"]]] },
+    c1:["여전채 만기별 · 단기 조달금리 (%)", [["yeojeon_aa_1y","여전채 AA− 1년"],["yeojeon_aa","여전채 AA− 3년"],["yeojeon_aa_5y","여전채 AA− 5년"],["yeojeon_a_plus","여전채 A+ 3년"],["cp91","CP 91일"]]],
+    c2:["캐피탈 스프레드 (bp)", [["yeojeon_spread_bp","여전채 AA− − 국고 3년"],["yeojeon_grade_bp","A+ − AA−"],["yeojeon_bank_bp","여전채 − 은행채"],["yeojeon_term_bp","5Y − 1Y"],["cp_cd_spread_bp","CP − CD"]]] },
   { id:"credit", name:"기업금융",
     desc:"캐피탈 기업금융의 실제 고객층인 중견·중소기업(A~BBB급) 조달금리. 등급 간 격차가 벌어지면 하위 등급 기업의 시장 조달이 어려워지고, 여신·사모 크레딧의 역할이 커져요.",
     cards:[["corp_aa_mp","회사채 AA− 3년 (민평)","%"],["corp_a_minus","회사채 A− 3년","%"],["corp_bbb_plus","회사채 BBB+ 3년","%"],
@@ -115,15 +145,16 @@ const TABS = [
     c2:["등급 간 스프레드 (bp)", [["corp_grade_a_bp","A− − AA−"],["corp_grade_bbb_bp","BBB+ − AA−"],["corp_a_spread_bp","A− − 국고 3년"]]] },
   { id:"insurance", name:"보험",
     desc:"보험사 ALM·K-ICS의 핵심인 초장기 구간. 10-30 스프레드가 낮거나 역전이면 초장기채 수요가 강하다는 신호예요.",
-    cards:[["ktb10","국고채 10년","%"],["ktb30","국고채 30년","%"],["ultra_spread_bp","초장기 스프레드 (30Y−10Y)","bp"],
+    cards:[["ktb10","국고채 10년","%"],["ktb20","국고채 20년","%"],["ktb30","국고채 30년","%"],["ultra_spread_bp","초장기 스프레드 (30Y−10Y)","bp"],
            ["term_spread_bp","장단기 스프레드 (10Y−3Y)","bp"]],
-    c1:["장기 · 초장기 국고채 (%)", [["ktb3","국고 3년"],["ktb10","국고 10년"],["ktb30","국고 30년"]]],
+    c1:["장기 · 초장기 국고채 (%)", [["ktb3","국고 3년"],["ktb5","국고 5년"],["ktb10","국고 10년"],["ktb20","국고 20년"],["ktb30","국고 30년"]]],
     c2:["커브 기울기 (bp)", [["ultra_spread_bp","30Y − 10Y"],["term_spread_bp","10Y − 3Y"]]] },
   { id:"bank", name:"은행",
-    desc:"은행 단기 조달·대출 기준금리인 CD, 그리고 단기 자금시장 스트레스(CP−CD).",
-    cards:[["cd91","CD 91일","%"],["cp91","CP 91일","%"],["cp_cd_spread_bp","CP − CD 스프레드","bp"],["ktb3","국고채 3년","%"]],
-    c1:["단기 금리 (%)", [["cd91","CD 91일"],["cp91","CP 91일"],["ktb3","국고 3년"]]],
-    c2:["단기 스프레드 (bp)", [["cp_cd_spread_bp","CP − CD"]]] },
+    desc:"은행의 시장 조달금리(은행채 AAA), 대출 기준금리인 CD, 그리고 단기 자금시장 스트레스(CP−CD).",
+    cards:[["bank_aaa_1y","은행채 AAA 1년","%"],["bank_aaa","은행채 AAA 3년","%"],["bank_spread_bp","은행채 AAA 스프레드 (vs 국고 3년)","bp"],
+           ["cd91","CD 91일","%"],["cp91","CP 91일","%"],["cp_cd_spread_bp","CP − CD 스프레드","bp"]],
+    c1:["은행 조달 · 단기 금리 (%)", [["bank_aaa_1y","은행채 AAA 1년"],["bank_aaa","은행채 AAA 3년"],["cd91","CD 91일"],["cp91","CP 91일"],["ktb3_mp","국고 3년 (민평)"]]],
+    c2:["은행 스프레드 (bp)", [["bank_spread_bp","은행채 AAA − 국고 3년"],["cp_cd_spread_bp","CP − CD"]]] },
   { id:"risk", name:"위험자산",
     desc:"주식은 신용위험의 선행지표예요. 기업이 어려워지면 보통 주가가 먼저 빠지고 크레딧 스프레드가 뒤따라 벌어져요. 둘이 같은 방향이면 신호가 강하고, 엇갈리면 경고 신호예요.",
     cards:[["kospi","코스피","idx"],["kosdaq","코스닥","idx"],["corp_spread_bp","회사채 크레딧 스프레드","bp"],
@@ -200,6 +231,7 @@ document.querySelectorAll("#ranges button").forEach(b => b.onclick = () => {
   document.querySelectorAll("#ranges button").forEach(x => x.classList.remove("on"));
   b.classList.add("on"); range = +b.dataset.d; render();
 });
+document.getElementById("evt").onchange = e => { showEv = e.target.checked; render(); };
 cur = TABS.find(t => "#" + t.id === location.hash) || TABS[0];
 render();
 </script>
@@ -209,7 +241,14 @@ render();
 
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 with open(OUT, "w", encoding="utf-8") as f:
-    f.write(HTML.replace("__DATA__", json.dumps(payload, ensure_ascii=False)).replace("__BUILT__", built))
+    try:
+        import events
+        ev = events.chart_lines(df.set_index("date"))
+    except Exception as e:  # noqa: BLE001
+        print(f"[경고] 이벤트 세로선 생략: {e}")
+        ev = []
+    f.write(HTML.replace("__DATA__", json.dumps(payload, ensure_ascii=False))
+            .replace("__EVENTS__", json.dumps(ev, ensure_ascii=False)).replace("__BUILT__", built))
 print(f"대시보드 생성: {OUT} (최신 {payload['date'][-1]})")
 
 # 지표 가이드 페이지
@@ -226,6 +265,14 @@ with open(os.path.join(ROOT, "docs", "daily.html"), "w", encoding="utf-8") as f:
 print("오늘의 해석 생성: docs/daily.html")
 institutions.write_logic(os.path.join(ROOT, "docs"), built)
 print("해석 로직 생성: docs/logic.html")
+
+# 주간 요약 · 캐리 계산기
+for name, mod in [("주간 요약", "weekly"), ("캐리 계산기", "calc")]:
+    try:
+        __import__(mod).write(os.path.join(ROOT, "docs"), df.set_index("date"), built)
+        print(f"{name} 생성: docs/{mod}.html")
+    except Exception as e:  # noqa: BLE001
+        print(f"[경고] {name} 생성 실패: {e}")
 
 # 앱(PWA) 설치 정보
 import pwa  # noqa: E402

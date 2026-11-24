@@ -49,6 +49,7 @@ def load():
 
     # 한국 날짜 기준 프레임: 미국 값은 (미국 날짜 + 1일) ≤ 한국 날짜 인 가장 최근 값
     k = kr[["ktb10", "ktb3"] + (["cd91"] if "cd91" in kr.columns else [])].copy()
+    k = k[k.index >= us.index.min()]           # 한국 데이터가 더 길어도 미국 기간에 맞춤
     u = us[["ust10", "ust3m", "fed_upper"]].copy()
     u["us_src"] = u.index                      # 실제로 쓰인 미국 날짜(표시용)
     u.index = u.index + pd.Timedelta(days=1)
