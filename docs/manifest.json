@@ -42,8 +42,8 @@
       "url": "./us.html"
     },
     {
-      "name": "미국 오늘의 해석",
-      "url": "./us-daily.html"
+      "name": "주간 요약",
+      "url": "./weekly.html"
     }
   ]
 }

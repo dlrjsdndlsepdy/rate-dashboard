@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>캐리·롤다운 계산기 · Rates & Spreads Dashboard</title>
+<style>
+  :root { --bg:#0f1419; --card:#1a2028; --line:#2a323d; --fg:#e6e9ee; --muted:#8b95a3; --accent:#4dabf7; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif; background:var(--bg); color:var(--fg); line-height:1.6; }
+  .wrap { max-width:860px; margin:0 auto; padding:24px 16px 64px; }
+  a { color:var(--accent); text-decoration:none; }
+  h1 { font-size:24px; margin:8px 0 4px; } h2 { font-size:18px; margin:26px 0 10px; }
+  .sub, .muted { color:var(--muted); font-size:13px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+  .form { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; }
+  label { font-size:12px; color:var(--muted); display:block; margin-bottom:3px; }
+  select, input { width:100%; background:#0f1419; color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:8px; font-size:15px; }
+  .res { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-top:12px; }
+  .k { background:#141a21; border-radius:10px; padding:10px 12px; }
+  .k .l { font-size:12px; color:var(--muted); } .k .v { font-size:20px; font-weight:800; margin-top:2px; }
+  .pos { color:#69db7c; } .neg { color:#ff8787; }
+  table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  td, th { border-bottom:1px solid var(--line); padding:6px 8px; text-align:right; }
+  td:first-child, th:first-child { text-align:left; }
+  .tg { display:inline-block; font-size:10px; font-weight:700; border-radius:4px; padding:0 5px; margin-right:4px; color:#0b1015; background:#ffd43b; }
+</style><!--pwa-->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f1419">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="NOIS">
+</head>
+<body><div class="wrap">
+  <div><a href="index.html">← 대시보드</a> · <a href="daily.html">🧭 오늘의 해석</a> · <a href="weekly.html">🗓️ 주간 요약</a></div>
+  <h1>🧮 캐리·롤다운 계산기</h1>
+  <div class="sub">오늘 곡선(최신 공표값)으로 "이 채권을 사서 몇 달 들고 있으면 얼마 남나, 금리가 얼마나 올라야 본전인가"를 근사해요.</div>
+
+  <h2>입력</h2>
+  <div class="card"><div class="form">
+    <div><label>채권 곡선</label><select id="cv"></select></div>
+    <div><label>만기 (년)</label><input id="T" type="number" step="0.5" min="0.5" value="3"></div>
+    <div><label>보유 기간 (개월)</label><input id="h" type="number" step="1" min="1" value="3"></div>
+    <div><label>조달금리 (%) · 0이면 자기자본</label><input id="f" type="number" step="0.01" value="0"></div>
+  </div>
+  <div class="muted" style="margin-top:8px" id="fundhint"></div></div>
+
+  <h2>결과</h2>
+  <div class="card">
+    <div class="res" id="res"></div>
+    <div style="margin-top:12px" id="msg"></div>
+  </div>
+
+  <h2>금리 변화별 보유기간 수익 (근사)</h2>
+  <div class="card"><table id="sens"></table>
+    <div class="muted" style="margin-top:6px">보유기간 수익 ≈ 캐리 + 롤다운 − 보유 후 듀레이션 × 금리 변화. 가격 기준 %, 연율 아님.</div></div>
+
+  <h2>계산 방법</h2>
+  <div class="card" style="font-size:13.5px">
+    <p><span class="tg">근사</span><b>캐리</b> = (매입 금리 − 조달금리) × 보유개월/12</p>
+    <p><span class="tg">근사</span><b>롤다운</b> = 보유 후 수정듀레이션 × (매입 금리 − 보유 후 잔존만기의 곡선 금리). 곡선이 우상향이면 만기가 줄며 금리가 내려가 가격이 올라요.</p>
+    <p><span class="tg">근사</span><b>손익분기 금리 상승폭</b> = (캐리 + 롤다운) ÷ 보유 후 수정듀레이션</p>
+    <p><span class="tg">근사</span><b>수정듀레이션</b> = (1 − (1 + y/2)<sup>−2T</sup>) ÷ y (액면가 반기 이표채)</p>
+    <p class="muted">가정: 곡선이 그대로, 잔존만기 금리는 공표 만기 사이 직선 보간, 볼록성·거래비용·세금·신용등급 변화 무시. 곡선 범위 밖 만기는 끝값을 그대로 써요.</p>
+    <p class="muted">어디에 쓰나: 보험 운용(장기채 매입 매력), 은행·증권 채권 운용(캐리 트레이드), 캐피탈 ALM(조달 만기 선택)의 기본 사고방식이에요.</p>
+  </div>
+  <div class="muted" id="asof" style="margin-top:10px"></div>
+</div>
+<script>
+const P = {"curves": {"국고채": [[1, 3.635, "2026-11-24"], [2, 3.657, "2026-11-24"], [3, 3.64, "2026-11-24"], [5, 3.708, "2026-11-24"], [10, 3.819, "2026-11-24"], [20, 4.006, "2026-11-24"], [30, 3.975, "2026-11-24"]], "여전채 AA−": [[1, 4.174, "2026-11-24"], [3, 4.314, "2026-11-24"], [5, 4.422, "2026-11-24"]], "은행채 AAA": [[1, 3.948, "2026-11-24"], [3, 3.986, "2026-11-24"]]}, "fund": {"CD 91일": 3.39, "CP 91일": 3.89, "기준금리": 3.0}};
+const $ = id => document.getElementById(id);
+const cv = $("cv");
+for (const n of Object.keys(P.curves)) cv.insertAdjacentHTML("beforeend", `<option>${n}</option>`);
+$("fundhint").textContent = "참고: " + Object.entries(P.fund).map(([k,v]) => `${k} ${v.toFixed(2)}%`).join(" · ")
+  + " — 레포·단기차입으로 산다고 보면 조달금리에 넣어 보세요.";
+function rate(pts, t){
+  if (t <= pts[0][0]) return pts[0][1];
+  for (let i = 1; i < pts.length; i++){
+    const [t0,y0] = pts[i-1], [t1,y1] = pts[i];
+    if (t <= t1) return y0 + (y1 - y0) * (t - t0) / (t1 - t0);
+  }
+  return pts.at(-1)[1];
+}
+function mdur(y, T){ y = y/100; if (T <= 0) return 0; if (y <= 0) return T; return (1 - Math.pow(1 + y/2, -2*T)) / y; }
+const pct = x => (x >= 0 ? "+" : "−") + Math.abs(x).toFixed(2) + "%";
+const bp = x => (x >= 0 ? "+" : "−") + Math.abs(x).toFixed(1) + "bp";
+function calc(){
+  const pts = P.curves[cv.value];
+  const T = +$("T").value, h = +$("h").value / 12, f = +$("f").value;
+  const y0 = rate(pts, T), Te = Math.max(T - h, 0.01), ye = rate(pts, Te), De = mdur(ye, Te);
+  const carry = (y0 - (f || 0)) * h;                 // %
+  const roll = De * (y0 - ye);                        // % (가격)
+  const tot = carry + roll;
+  const be = De > 0 ? tot / De * 100 : 0;            // bp
+  const k = (l, v, cls="") => `<div class="k"><div class="l">${l}</div><div class="v ${cls}">${v}</div></div>`;
+  $("res").innerHTML =
+    k(`매입 금리 (${T}년)`, y0.toFixed(3) + "%") +
+    k(`보유 후 잔존 ${Te.toFixed(2)}년 금리`, ye.toFixed(3) + "%") +
+    k("보유 후 수정듀레이션", De.toFixed(2) + "년") +
+    k("캐리", pct(carry), carry >= 0 ? "pos" : "neg") +
+    k("롤다운", pct(roll), roll >= 0 ? "pos" : "neg") +
+    k("합계 (곡선 불변)", pct(tot), tot >= 0 ? "pos" : "neg") +
+    k("손익분기 금리 상승폭", be >= 0 ? bp(be) : "이미 손실", be >= 0 ? "pos" : "neg");
+  $("msg").innerHTML = be >= 0
+    ? `<span class="tg">근사</span> ${$("h").value}개월 동안 ${cv.value} ${T}년물 금리가 <b>${be.toFixed(1)}bp</b> 넘게 오르지 않으면 이익이에요.`
+      + (roll > carry && roll > 0 ? " 이 구간은 캐리보다 <b>롤다운</b> 기여가 커요(곡선 기울기가 가파른 구간)." : "")
+    : `<span class="tg">근사</span> 조달금리가 매입 금리보다 높아(역캐리) 곡선이 그대로면 손실이에요.`;
+  let rows = "<tr><th>금리 변화</th><th>보유기간 수익</th><th>연율 환산</th></tr>";
+  for (const d of [-50,-25,-10,0,10,25,50]){
+    const r = tot - De * d / 100;
+    rows += `<tr><td>${d > 0 ? "+" : ""}${d}bp</td><td class="${r >= 0 ? "pos" : "neg"}">${pct(r)}</td><td>${pct(r / h)}</td></tr>`;
+  }
+  $("sens").innerHTML = rows;
+  $("asof").textContent = "곡선 기준일: " + pts.map(p => `${p[0]}년 ${p[1].toFixed(3)}% (${p[2]})`).join(" · ");
+}
+for (const id of ["cv","T","h","f"]) $(id).addEventListener("input", calc);
+calc();
+</script><script>
+if ("serviceWorker" in navigator) { navigator.serviceWorker.register("sw.js").catch(() => {}); }
+let _pwaEvt = null;
+window.addEventListener("beforeinstallprompt", e => {
+  e.preventDefault(); _pwaEvt = e;
+  if (document.getElementById("pwaBtn")) return;
+  const b = document.createElement("button"); b.id = "pwaBtn"; b.textContent = "📱 앱 설치";
+  b.style.cssText = "position:fixed;right:16px;bottom:16px;z-index:99;background:#4dabf7;color:#0b1015;border:none;border-radius:999px;padding:10px 16px;font-weight:700;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,.4);cursor:pointer";
+  b.onclick = async () => { b.remove(); _pwaEvt.prompt(); _pwaEvt = null; };
+  document.body.appendChild(b);
+});
+</script>
+</body></html>

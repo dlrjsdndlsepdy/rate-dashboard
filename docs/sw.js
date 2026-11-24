@@ -1,5 +1,5 @@
-const CACHE = "rate-dashboard-v3";
-const CORE = ["./", "./index.html", "./markets.html", "./daily.html", "./us.html", "./us-daily.html", "./guide.html", "./logic.html", "./manifest.json", "./icon-192.png"];
+const CACHE = "rate-dashboard-v4";
+const CORE = ["./", "./index.html", "./markets.html", "./daily.html", "./us.html", "./us-daily.html", "./guide.html", "./logic.html", "./weekly.html", "./calc.html", "./manifest.json", "./icon-192.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).catch(() => {})); self.skipWaiting(); });
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))));
